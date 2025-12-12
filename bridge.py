@@ -566,7 +566,7 @@ class BridgeLogic:
 class BridgeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"LMU Telemetry Bridge - v{__version__}")
+        self.root.title(f"LMU Telemetry Bridge - {__version__}")
         self.root.geometry("500x700")
         self.root.configure(bg=COLORS["bg"])
         self.root.resizable(False, False)
@@ -577,10 +577,10 @@ class BridgeApp:
 
         header_frame = tk.Frame(root, bg=COLORS["bg"])
         header_frame.pack(pady=20)
-        tk.Label(header_frame, text="LE MANS", font=("Segoe UI", 24, "bold italic"), bg=COLORS["bg"], fg="white").pack()
+        tk.Label(header_frame, text="Property of FBT", font=("Segoe UI", 24, "bold italic"), bg=COLORS["bg"], fg="white").pack()
         tk.Label(header_frame, text="CLOUD BRIDGE", font=("Segoe UI", 10, "bold"), bg=COLORS["bg"],
                  fg=COLORS["accent"]).pack()
-        tk.Label(header_frame, text=f"v{__version__}", font=("Segoe UI", 8), bg=COLORS["bg"], fg="#475569").pack(
+        tk.Label(header_frame, text=f"{__version__}", font=("Segoe UI", 8), bg=COLORS["bg"], fg="#475569").pack(
             pady=(2, 0))
         form_frame = tk.Frame(root, bg=COLORS["panel"], padx=20, pady=20)
         form_frame.pack(padx=30, fill="x", pady=10)
