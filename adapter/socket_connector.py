@@ -41,26 +41,41 @@ class SocketConnector:
                 print(f"⚠️ Erreur de connexion VPS : {e}")
                 self.is_connected = False
 
-    # MODIFICATION ICI : On ajoute history_id et session_type
-    def register_lineup(self, team_id, driver_name, history_id, session_type):
+    # MODIFICATION ICI : Ajout de car_category en paramètre
+    def register_lineup(self, team_id, driver_name, history_id, session_type, car_category="Unknown"):
         if not self.is_connected and not self.sio.connected:
             self.connect()
 
         payload = {
-            "teamId": team_id,          # ID pour le LIVE (ex: "baliverne")
-            "historyId": history_id,    # ID pour l'ANALYSE (ex: "baliverne_Race_123456")
+            "teamId": team_id,
+            "historyId": history_id,
             "creator": driver_name,
             "sessionType": session_type,
             "timestamp": time.time(),
-            "carCategory": "Unknown",
+            "carCategory": car_category,  # Utilisation de la catégorie passée en paramètre
             "status": "CREATED"
         }
 
         try:
             self.sio.emit('create_team', payload)
-            print(f"🆕 Session Historique créée : {history_id} ({session_type})")
+            print(f"🆕 Session Historique créée : {history_id} ({session_type}) - Class: {car_category}")
         except Exception as e:
             print(f"❌ Erreur création session : {e}")
+
+    def join_lineup(self, team_id, driver_name):
+        if not self.is_connected and not self.sio.connected:
+            self.connect()
+
+        payload = {
+            "teamId": team_id,
+            "driverName": driver_name
+        }
+
+        try:
+            self.sio.emit('join_team', payload)
+            print(f"➕ Rejoindre l'équipe : {team_id} ({driver_name})")
+        except Exception as e:
+            print(f"❌ Erreur pour rejoindre l'équipe : {e}")
 
     def send_data(self, data):
         if not self.is_connected and not self.sio.connected:

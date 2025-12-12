@@ -9,6 +9,7 @@ import uuid
 import requests
 from update import check_and_update
 from version import __version__
+
 # --- FIX IMPORT ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -35,9 +36,7 @@ COLORS = {
 }
 
 # --- CONFIGURATION VPS ---
-# Pensez à vérifier que cette URL correspond bien à votre Ngrok actif !
 VPS_URL = "https://api.racetelemetrybyfbt.com"
-
 
 
 def normalize_id(name):
@@ -72,7 +71,6 @@ class ConsumptionTracker:
         self.ve_samples = 0
 
     def update(self, current_lap, current_fuel, current_ve, in_pits):
-        # 1. Initialisation ou Restart Session
         if self.last_lap == -1 or current_lap < self.last_lap:
             self.last_lap = current_lap
             self.fuel_start = current_fuel
@@ -81,21 +79,17 @@ class ConsumptionTracker:
                 self.log("🔄 Session redémarrée : Reset conso")
             return
 
-        # 2. Passage de ligne (Nouveau tour)
         if current_lap > self.last_lap:
             fuel_delta = self.fuel_start - current_fuel
             ve_delta = self.ve_start - current_ve
 
-            # On ignore les tours où on a ravitaillé (delta négatif) ou si on est dans les stands
             if not in_pits and fuel_delta > 0.01:
-                # Mise à jour Fuel
                 self.fuel_last = fuel_delta
                 self.fuel_samples += 1
                 self.fuel_avg = self.fuel_avg + (fuel_delta - self.fuel_avg) / self.fuel_samples
 
                 self.log(f"🏁 Tour {self.last_lap} terminé. Conso: {fuel_delta:.2f}L")
 
-                # Mise à jour VE (Seulement si cohérent)
                 if ve_delta > 0.01:
                     self.ve_last = ve_delta
                     self.ve_samples += 1
@@ -104,7 +98,6 @@ class ConsumptionTracker:
             elif in_pits:
                 self.log(f"🛑 Tour {self.last_lap} ignoré (Stands)")
 
-            # Reset pour le prochain tour
             self.last_lap = current_lap
             self.fuel_start = current_fuel
             self.ve_start = current_ve
@@ -118,7 +111,6 @@ class ConsumptionTracker:
         }
 
 
-# --- GESTION DES LOGS GUI ---
 class TextHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -139,11 +131,10 @@ class TextHandler(logging.Handler):
         self.text_widget.after(0, append)
 
 
-# --- RECORDER TÉLÉMÉTRIE (HISTORIQUE) ---
 class TelemetryRecorder:
     def __init__(self, api_url, team_id):
         self.api_url = api_url
-        self.team_id = team_id  # Sera mis à jour avec l'ID Historique (ex: baliverne_RACE_123)
+        self.team_id = team_id
         self.buffer = []
         self.current_lap = -1
         self.driver_name = "Unknown"
@@ -151,33 +142,26 @@ class TelemetryRecorder:
         self.last_dist = -1
 
     def update(self, lap_number, vehicle_idx, telemetry, vehicle, scoring):
-        # 1. Gestion du changement de tour (Envoi)
         if self.current_lap != -1 and lap_number > self.current_lap:
-            # Récupération du temps du dernier tour via l'objet Scoring
             last_lap_time = 0
             if hasattr(scoring, 'get_vehicle_scoring'):
                 v_data = scoring.get_vehicle_scoring(vehicle_idx)
                 last_lap_time = v_data.get('last_lap', 0)
 
             self.flush_lap(self.current_lap, last_lap_time)
-            self.buffer = []  # Reset buffer
+            self.buffer = []
             self.last_dist = -1
 
         self.current_lap = lap_number
 
-        # 2. Calcul robuste de la distance (Telemetry OU Scoring)
         dist = 0
-        # Essai 1 : Via Télémétrie directe
         if hasattr(telemetry, 'lap_distance'):
             dist = telemetry.lap_distance(vehicle_idx)
 
-        # Essai 2 : Fallback sur Scoring si Télémétrie échoue (0 ou None)
         if (dist == 0 or dist is None) and hasattr(scoring, 'get_vehicle_scoring'):
             v_data = scoring.get_vehicle_scoring(vehicle_idx)
             dist = v_data.get('lap_dist', 0)
 
-        # 3. Enregistrement des points
-        # On filtre si on est à l'arrêt ou si on n'a pas assez avancé (< 2m)
         if vehicle.speed(vehicle_idx) > 1:
             if self.last_dist == -1 or abs(dist - self.last_dist) > 2.0:
                 self.buffer.append({
@@ -188,19 +172,18 @@ class TelemetryRecorder:
                     "g": telemetry.gear(vehicle_idx),
                     "w": round(telemetry.input_steering(vehicle_idx), 2),
                     "f": round(telemetry.fuel_level(vehicle_idx), 2),
-                    "r": round(telemetry.rpm(vehicle_idx), 0),  # Ajout RPM
+                    "r": round(telemetry.rpm(vehicle_idx), 0),
                     "ve": round(telemetry.virtual_energy(vehicle_idx), 1),
                     "tw": round(telemetry.tire_wear(vehicle_idx)[0], 1)
                 })
                 self.last_dist = dist
 
     def flush_lap(self, lap_num, lap_time):
-        # On ignore les tours incomplets ou trop courts (< 50 points)
         if not self.buffer or len(self.buffer) < 50:
             return
 
         payload = {
-            "sessionId": self.team_id,  # C'est ici que l'ID Historique est utilisé
+            "sessionId": self.team_id,
             "lapNumber": lap_num,
             "driver": self.driver_name,
             "lapTime": lap_time,
@@ -209,7 +192,7 @@ class TelemetryRecorder:
 
         def send():
             try:
-                headers = {"Content-Type": "application/json", "ngrok-skip-browser-warning": "true"}
+                headers = {"Content-Type": "application/json"}
                 requests.post(
                     f"{self.api_url}/api/telemetry/lap",
                     json=payload,
@@ -259,24 +242,17 @@ class BridgeLogic:
     def start_loop(self, line_up_name, driver_pseudo):
         self.session_id += 1
         current_session_id = self.session_id
-
         self.line_up_name = line_up_name
         self.team_id = normalize_id(line_up_name)
         self.driver_pseudo = driver_pseudo
         self.running = True
         self.tracker.reset()
-
-        # Connexion assurée au VPS
         if not self.connector:
             self.connect_vps()
-
-        # Enregistrement initial (Mode Lobby/Attente)
         if self.connector and self.connector.is_connected:
-            self.log(f"💾 Connexion initiale pour '{self.team_id}'...")
-            lobby_id = f"{self.team_id}_LOBBY_{int(time.time())}"
-            # On utilise le nouveau format à 4 arguments
-            self.connector.register_lineup(self.team_id, self.driver_pseudo, lobby_id, "LOBBY")
-
+            self.log(f"💾 Connexion pour '{self.team_id}'...")
+            lobby_id = f"{self.team_id}_LOBBY"
+            self.connector.join_lineup(self.team_id, self.driver_pseudo)
         self.thread = threading.Thread(target=self._run, args=(current_session_id,), daemon=True)
         self.thread.start()
 
@@ -344,11 +320,9 @@ class BridgeLogic:
         last_update_time = 0
         UPDATE_RATE = 0.05
 
-        # Variables pour la détection de session
         last_session_type = -1
         current_history_id = f"{self.team_id}_WAITING"
 
-        # Init Recorder
         self.recorder = TelemetryRecorder(VPS_URL, current_history_id)
 
         while self.running:
@@ -391,7 +365,6 @@ class BridgeLogic:
                 # --- GESTION CHANGEMENT DE SESSION ---
                 if self.rf2_info and scoring:
                     try:
-                        # 0=Test, 1-4=Practice, 5-8=Qualy, 9=Warmup, 10+=Race
                         sess_type_int = scoring.session_type()
 
                         if sess_type_int != last_session_type:
@@ -405,30 +378,58 @@ class BridgeLogic:
                             elif sess_type_int >= 10:
                                 sess_name = "RACE"
 
-                            # ID Unique: NomTeam_Type_Timestamp
                             current_history_id = f"{self.team_id}_{sess_name}_{int(time.time())}"
 
                             self.log(f"🔄 Nouvelle Séance détectée : {sess_name}")
                             self.log(f"📂 ID Historique : {current_history_id}")
 
-                            # Update Recorder
                             if self.recorder:
                                 self.recorder.team_id = current_history_id
 
-                            # Notify Server (Création table sessions)
+                            # --- MODIFICATION: Récupération de la classe ---
+                            car_cat = "Unknown"
+                            try:
+                                # On essaie de récupérer la classe du véhicule actuel
+                                veh_idx = status.get('vehicle_index', -1)
+                                if veh_idx != -1:
+                                    # scoring.get_vehicle_scoring renvoie un dict avec 'class'
+                                    v_data = scoring.get_vehicle_scoring(veh_idx)
+                                    car_cat = v_data.get('class', 'Unknown')
+                            except:
+                                pass
+
                             if self.connector:
                                 self.connector.register_lineup(
                                     self.team_id,
                                     self.driver_pseudo,
                                     current_history_id,
-                                    sess_name
+                                    sess_name,
+                                    car_category=car_cat  # Envoi de la catégorie
                                 )
+                                try:
+                                    track_name = scoring.track_name() if scoring else "Unknown Circuit"
+                                    current_driver = status.get('driver_name', self.driver_pseudo)
+
+                                    api_payload = {
+                                        "sessionId": current_history_id,
+                                        "driver": current_driver,
+                                        "circuit": track_name
+                                    }
+
+                                    # Appel à l'endpoint défini dans server.js (app.post('/api/sessions/start'...))
+                                    requests.post(
+                                        f"{VPS_URL}/api/sessions/start",
+                                        json=api_payload,
+                                        timeout=2
+                                    )
+                                    self.log(f"📁 Session d'analyse créée : {current_history_id}")
+                                except Exception as api_err:
+                                    self.log(f"⚠️ Erreur création session Analyse : {api_err}")
 
                             last_session_type = sess_type_int
                     except Exception as e:
                         if self.debug_mode: self.log(f"Err session check: {e}")
 
-                # Mise à jour recorder info
                 if self.rf2_info and scoring:
                     self.recorder.driver_name = status.get('driver_name', 'Unknown')
                     self.recorder.track_name = scoring.track_name() if scoring else "Unknown"
@@ -440,14 +441,11 @@ class BridgeLogic:
                     curr_ve = telemetry.virtual_energy(idx)
                     curr_lap = telemetry.lap_number(idx)
 
-                    # --- LOGIQUE RECORDER ---
                     try:
                         self.recorder.update(curr_lap, idx, telemetry, vehicle_helper, scoring)
                     except Exception as rec_err:
                         if self.debug_mode: self.log(f"⚠️ Erreur Recorder: {rec_err}")
-                    # ------------------------
 
-                    # --- Météo ---
                     forecast_data = []
                     try:
                         sess_type = scoring.session_type()
@@ -469,7 +467,6 @@ class BridgeLogic:
                     except:
                         pass
 
-                    # --- Conso ---
                     try:
                         scor_veh = scoring.get_vehicle_scoring(idx)
                         in_pits = (scor_veh.get('in_pits', 0) == 1)
@@ -479,7 +476,6 @@ class BridgeLogic:
                     self.tracker.update(curr_lap, curr_fuel, curr_ve, in_pits)
                     stats = self.tracker.get_stats()
 
-                    # --- Construction Payload ---
                     payload = {
                         "teamId": self.team_id,
                         "driverName": game_driver,
@@ -531,7 +527,6 @@ class BridgeLogic:
                         }
                     }
 
-                    # --- Envoi vers VPS ---
                     if self.running and self.session_id == my_session_id:
                         if self.connector:
                             self.connector.send_data(payload)
@@ -540,7 +535,6 @@ class BridgeLogic:
                         self.set_status(f"LIVE ({game_driver})", COLORS["accent"])
 
                         if self.debug_mode:
-                            # self.log(f"📤 Sent VPS | Spd: {payload['telemetry']['speed']:.0f}")
                             self.log(f"payload = {payload}")
 
                 elif not status['is_driving']:
@@ -577,7 +571,8 @@ class BridgeApp:
 
         header_frame = tk.Frame(root, bg=COLORS["bg"])
         header_frame.pack(pady=20)
-        tk.Label(header_frame, text="Property of FBT", font=("Segoe UI", 24, "bold italic"), bg=COLORS["bg"], fg="white").pack()
+        tk.Label(header_frame, text="Property of FBT", font=("Segoe UI", 24, "bold italic"), bg=COLORS["bg"],
+                 fg="white").pack()
         tk.Label(header_frame, text="CLOUD BRIDGE", font=("Segoe UI", 10, "bold"), bg=COLORS["bg"],
                  fg=COLORS["accent"]).pack()
         tk.Label(header_frame, text=f"{__version__}", font=("Segoe UI", 8), bg=COLORS["bg"], fg="#475569").pack(
@@ -657,7 +652,6 @@ class BridgeApp:
         threading.Thread(target=self._check_and_start, args=(lineup, pseudo)).start()
 
     def _check_and_start(self, lineup, pseudo):
-        # On tente de se connecter au VPS
         if self.logic.connect_vps():
             self.log(f"☁️ Connecté au VPS !")
             self._activate_ui(True)
