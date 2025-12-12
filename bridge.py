@@ -7,7 +7,7 @@ import os
 import logging
 import uuid
 import requests
-
+from update import check_and_update
 # --- FIX IMPORT ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -36,6 +36,7 @@ COLORS = {
 # --- CONFIGURATION VPS ---
 # Pensez à vérifier que cette URL correspond bien à votre Ngrok actif !
 VPS_URL = "https://api.racetelemetrybyfbt.com"
+
 
 
 def normalize_id(name):
@@ -691,6 +692,10 @@ class BridgeApp:
 
 
 if __name__ == "__main__":
+    try:
+        check_and_update()
+    except Exception as e:
+        print(f"Erreur module mise à jour: {e}")
     root = tk.Tk()
     app = BridgeApp(root)
     root.mainloop()

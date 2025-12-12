@@ -1,4 +1,4 @@
+# LMU_Bridge/version.py
 # Core version (MAJOR.MINOR.PATCH)
-__version__ = "2.35.3"
-# Development version tag (set to "" for release-version)
+__version__ = "0.1" # Changez ceci à chaque release !
 DEVELOPMENT = ""
