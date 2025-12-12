@@ -5,7 +5,6 @@ import time
 import sys
 import os
 import logging
-import uuid
 import requests
 from update import check_and_update
 from version import __version__
@@ -23,7 +22,6 @@ try:
         TelemetryData, ScoringData, RulesData, ExtendedData,
         PitInfoData, WeatherData, PitStrategyData, Vehicle
     )
-    # On utilise le SocketConnector vers le VPS
     from adapter.socket_connector import SocketConnector
 except ImportError as e:
     print(f"Erreur d'import critique : {e}")
@@ -61,11 +59,9 @@ class ConsumptionTracker:
         self.last_lap = -1
         self.fuel_start = -1.0
         self.ve_start = -1.0
-
         self.fuel_last = 0.0
         self.fuel_avg = 0.0
         self.fuel_samples = 0
-
         self.ve_last = 0.0
         self.ve_avg = 0.0
         self.ve_samples = 0
@@ -87,7 +83,6 @@ class ConsumptionTracker:
                 self.fuel_last = fuel_delta
                 self.fuel_samples += 1
                 self.fuel_avg = self.fuel_avg + (fuel_delta - self.fuel_avg) / self.fuel_samples
-
                 self.log(f"🏁 Tour {self.last_lap} terminé. Conso: {fuel_delta:.2f}L")
 
                 if ve_delta > 0.01:
@@ -153,11 +148,9 @@ class TelemetryRecorder:
             self.last_dist = -1
 
         self.current_lap = lap_number
-
         dist = 0
         if hasattr(telemetry, 'lap_distance'):
             dist = telemetry.lap_distance(vehicle_idx)
-
         if (dist == 0 or dist is None) and hasattr(scoring, 'get_vehicle_scoring'):
             v_data = scoring.get_vehicle_scoring(vehicle_idx)
             dist = v_data.get('lap_dist', 0)
@@ -179,9 +172,7 @@ class TelemetryRecorder:
                 self.last_dist = dist
 
     def flush_lap(self, lap_num, lap_time):
-        if not self.buffer or len(self.buffer) < 50:
-            return
-
+        if not self.buffer or len(self.buffer) < 50: return
         payload = {
             "sessionId": self.team_id,
             "lapNumber": lap_num,
@@ -192,14 +183,9 @@ class TelemetryRecorder:
 
         def send():
             try:
-                headers = {"Content-Type": "application/json"}
-                requests.post(
-                    f"{self.api_url}/api/telemetry/lap",
-                    json=payload,
-                    headers=headers,
-                    timeout=5
-                )
-                print(f"💾 Télémétrie Tour {lap_num} sauvegardée ({len(self.buffer)} points) pour {self.team_id}")
+                requests.post(f"{self.api_url}/api/telemetry/lap", json=payload,
+                              headers={"Content-Type": "application/json"}, timeout=5)
+                print(f"💾 Télémétrie Tour {lap_num} sauvegardée")
             except Exception as e:
                 print(f"⚠️ Erreur upload télémétrie: {e}")
 
@@ -222,15 +208,14 @@ class BridgeLogic:
         self.tracker = ConsumptionTracker(self.log)
         self.session_id = 0
         self.recorder = None
+        self.analysis_enabled = False
 
     def set_debug(self, enabled):
         self.debug_mode = enabled
         self.log(f"🔧 Mode Debug {'ACTIVÉ' if enabled else 'DÉSACTIVÉ'}")
 
     def connect_vps(self):
-        if self.connector and self.connector.is_connected:
-            return True
-
+        if self.connector and self.connector.is_connected: return True
         try:
             self.connector = SocketConnector(VPS_URL, port=None)
             self.connector.connect()
@@ -239,19 +224,24 @@ class BridgeLogic:
             self.log(f"❌ Erreur Connexion VPS: {e}")
             return False
 
-    def start_loop(self, line_up_name, driver_pseudo):
+    def start_loop(self, line_up_name, driver_pseudo, analysis_enabled):
         self.session_id += 1
         current_session_id = self.session_id
         self.line_up_name = line_up_name
         self.team_id = normalize_id(line_up_name)
         self.driver_pseudo = driver_pseudo
+        self.analysis_enabled = analysis_enabled
         self.running = True
         self.tracker.reset()
-        if not self.connector:
-            self.connect_vps()
+
+        if self.analysis_enabled:
+            self.log("📊 Enregistrement Analyse : ACTIVÉ")
+        else:
+            self.log("🚫 Enregistrement Analyse : DÉSACTIVÉ")
+
+        if not self.connector: self.connect_vps()
         if self.connector and self.connector.is_connected:
             self.log(f"💾 Connexion pour '{self.team_id}'...")
-            lobby_id = f"{self.team_id}_LOBBY"
             self.connector.join_lineup(self.team_id, self.driver_pseudo)
         self.thread = threading.Thread(target=self._run, args=(current_session_id,), daemon=True)
         self.thread.start()
@@ -260,35 +250,21 @@ class BridgeLogic:
         self.log("🛑 Demande d'arrêt...")
         self.running = False
         self.session_id += 1
-
         try:
-            if self.rf2_info:
-                self.log("🧽 Arrêt rF2...")
-                self.rf2_info.stop()
+            if self.rf2_info: self.rf2_info.stop()
         except:
             pass
-
         try:
             if self.rest_info: self.rest_info.stop()
         except:
             pass
-
         try:
-            if self.connector:
-                self.connector.disconnect()
+            if self.connector: self.connector.disconnect()
         except:
             pass
-
-        if self.thread and self.thread.is_alive():
-            try:
-                self.thread.join(timeout=3.0)
-            except:
-                pass
-
         self.rf2_info = None
         self.rest_info = None
         self.thread = None
-
         self.set_status("STOPPED", COLORS["danger"])
         self.log("⏹️ Bridge arrêté.")
 
@@ -298,36 +274,27 @@ class BridgeLogic:
 
         pit_strategy = PitStrategyData(port=6397)
         mock_parent = MockParentAPI()
-
         self.rest_info = RestAPIInfo(mock_parent)
         self.rest_info.setConnection({
-            "url_host": "localhost",
-            "url_port_lmu": 6397,
-            "connection_timeout": 1.0,
-            "connection_retry": 3,
-            "connection_retry_delay": 2,
-            "restapi_update_interval": 50,
-            "enable_restapi_access": True,
-            "enable_weather_info": True,
-            "enable_session_info": True,
-            "enable_garage_setup_info": True,
-            "enable_vehicle_info": True,
-            "enable_energy_remaining": True
+            "url_host": "localhost", "url_port_lmu": 6397, "connection_timeout": 1.0,
+            "connection_retry": 3, "connection_retry_delay": 2, "restapi_update_interval": 50,
+            "enable_restapi_access": True, "enable_weather_info": True, "enable_session_info": True,
+            "enable_garage_setup_info": True, "enable_vehicle_info": True, "enable_energy_remaining": True
         })
 
         telemetry = scoring = rules = extended = pit_info = weather = vehicle_helper = None
         last_game_check = 0
         last_update_time = 0
         UPDATE_RATE = 0.05
-
         last_session_type = -1
         current_history_id = f"{self.team_id}_WAITING"
-
         self.recorder = TelemetryRecorder(VPS_URL, current_history_id)
+
+        # --- TRACKING : Stints & Pit Stops ---
+        vehicle_trackers = {}
 
         while self.running:
             if self.session_id != my_session_id: break
-
             current_time = time.time()
 
             if self.rf2_info is None:
@@ -339,7 +306,6 @@ class BridgeLogic:
                         self.rest_info.start()
                         self.log("🎮 Jeu détecté ! Connexion établie.")
                         self.set_status("CONNECTED (GAME)", COLORS["success"])
-
                         telemetry = TelemetryData(self.rf2_info, self.rest_info)
                         scoring = ScoringData(self.rf2_info)
                         rules = RulesData(self.rf2_info)
@@ -348,6 +314,7 @@ class BridgeLogic:
                         weather = WeatherData(self.rf2_info)
                         vehicle_helper = Vehicle(self.rf2_info)
                         self.tracker.reset()
+                        vehicle_trackers = {}
                     except Exception as e:
                         try:
                             if self.rf2_info: self.rf2_info.stop()
@@ -362,71 +329,57 @@ class BridgeLogic:
                 if not self.running: break
                 status = vehicle_helper.get_local_driver_status()
 
-                # --- GESTION CHANGEMENT DE SESSION ---
+                # --- 1. DÉTECTION DU TYPE DE SESSION ---
+                current_sess_name = "TEST"
+                current_sess_type = 0
+
                 if self.rf2_info and scoring:
                     try:
-                        sess_type_int = scoring.session_type()
+                        current_sess_type = scoring.session_type()
+                        if 1 <= current_sess_type <= 4:
+                            current_sess_name = "PRACTICE"
+                        elif 5 <= current_sess_type <= 8:
+                            current_sess_name = "QUALIFY"
+                        elif current_sess_type == 9:
+                            current_sess_name = "WARMUP"
+                        elif current_sess_type >= 10:
+                            current_sess_name = "RACE"
 
-                        if sess_type_int != last_session_type:
-                            sess_name = "TEST"
-                            if 1 <= sess_type_int <= 4:
-                                sess_name = "PRACTICE"
-                            elif 5 <= sess_type_int <= 8:
-                                sess_name = "QUALIFY"
-                            elif sess_type_int == 9:
-                                sess_name = "WARMUP"
-                            elif sess_type_int >= 10:
-                                sess_name = "RACE"
+                        # Gestion changement de session
+                        if current_sess_type != last_session_type:
+                            current_history_id = f"{self.team_id}_{current_sess_name}_{int(time.time())}"
+                            self.log(f"🔄 Nouvelle Séance : {current_sess_name} ({current_history_id})")
+                            if self.recorder: self.recorder.team_id = current_history_id
 
-                            current_history_id = f"{self.team_id}_{sess_name}_{int(time.time())}"
+                            vehicle_trackers = {}  # Reset stats
 
-                            self.log(f"🔄 Nouvelle Séance détectée : {sess_name}")
-                            self.log(f"📂 ID Historique : {current_history_id}")
-
-                            if self.recorder:
-                                self.recorder.team_id = current_history_id
-
-                            # --- MODIFICATION: Récupération de la classe ---
                             car_cat = "Unknown"
                             try:
-                                # On essaie de récupérer la classe du véhicule actuel
                                 veh_idx = status.get('vehicle_index', -1)
                                 if veh_idx != -1:
-                                    # scoring.get_vehicle_scoring renvoie un dict avec 'class'
                                     v_data = scoring.get_vehicle_scoring(veh_idx)
                                     car_cat = v_data.get('class', 'Unknown')
                             except:
                                 pass
 
                             if self.connector:
-                                self.connector.register_lineup(
-                                    self.team_id,
-                                    self.driver_pseudo,
-                                    current_history_id,
-                                    sess_name,
-                                    car_category=car_cat  # Envoi de la catégorie
-                                )
-                                try:
-                                    track_name = scoring.track_name() if scoring else "Unknown Circuit"
-                                    current_driver = status.get('driver_name', self.driver_pseudo)
+                                self.connector.register_lineup(self.team_id, self.driver_pseudo, current_history_id,
+                                                               current_sess_name, car_category=car_cat)
 
-                                    api_payload = {
-                                        "sessionId": current_history_id,
-                                        "driver": current_driver,
-                                        "circuit": track_name
-                                    }
+                                # --- GESTION ENREGISTREMENT ANALYSE ---
+                                if self.analysis_enabled:
+                                    try:
+                                        track_name = scoring.track_name() if scoring else "Unknown Circuit"
+                                        current_driver = status.get('driver_name', self.driver_pseudo)
+                                        api_payload = {"sessionId": current_history_id, "driver": current_driver,
+                                                       "circuit": track_name}
+                                        requests.post(f"{VPS_URL}/api/sessions/start", json=api_payload, timeout=2)
+                                        self.log(f"📁 Session d'analyse créée")
+                                    except Exception as api_err:
+                                        self.log(f"⚠️ Erreur création session Analyse: {api_err}")
+                                # ---------------------------------------
 
-                                    # Appel à l'endpoint défini dans server.js (app.post('/api/sessions/start'...))
-                                    requests.post(
-                                        f"{VPS_URL}/api/sessions/start",
-                                        json=api_payload,
-                                        timeout=2
-                                    )
-                                    self.log(f"📁 Session d'analyse créée : {current_history_id}")
-                                except Exception as api_err:
-                                    self.log(f"⚠️ Erreur création session Analyse : {api_err}")
-
-                            last_session_type = sess_type_int
+                            last_session_type = current_sess_type
                     except Exception as e:
                         if self.debug_mode: self.log(f"Err session check: {e}")
 
@@ -441,29 +394,31 @@ class BridgeLogic:
                     curr_ve = telemetry.virtual_energy(idx)
                     curr_lap = telemetry.lap_number(idx)
 
+                    # --- ENREGISTREMENT TÉLÉMÉTRIE (SI ACTIVÉ) ---
                     try:
-                        self.recorder.update(curr_lap, idx, telemetry, vehicle_helper, scoring)
-                    except Exception as rec_err:
-                        if self.debug_mode: self.log(f"⚠️ Erreur Recorder: {rec_err}")
+                        if self.analysis_enabled:
+                            self.recorder.update(curr_lap, idx, telemetry, vehicle_helper, scoring)
+                    except:
+                        pass
+                    # ---------------------------------------------
 
+                    # --- WEATHER ---
                     forecast_data = []
                     try:
-                        sess_type = scoring.session_type()
-                        raw_forecast = None
-                        if sess_type < 5:
-                            raw_forecast = self.rest_info.telemetry.forecastPractice
-                        elif sess_type < 9:
-                            raw_forecast = self.rest_info.telemetry.forecastQualify
-                        else:
-                            raw_forecast = self.rest_info.telemetry.forecastRace
+                        if hasattr(weather, 'forecast'):
+                            raw_forecast = weather.forecast()
+                            key = 'race'
+                            if current_sess_type < 5:
+                                key = 'practice'
+                            elif current_sess_type < 9:
+                                key = 'qualify'
 
-                        if raw_forecast:
-                            for node in raw_forecast:
-                                r_chance = max(0.0, getattr(node, "rain_chance", 0.0))
-                                sky = getattr(node, "sky_type", 0)
-                                temp_val = getattr(node, "temperature", 0.0)
-                                forecast_data.append(
-                                    {"rain": r_chance / 100.0, "cloud": min(max(sky, 0) / 4.0, 1.0), "temp": temp_val})
+                            for node in raw_forecast.get(key, []):
+                                forecast_data.append({
+                                    "rain": float(node.get("rain_chance", 0.0)) / 100.0,
+                                    "cloud": min(max(float(node.get("sky", 0)), 0) / 4.0, 1.0),
+                                    "temp": float(node.get("temp", 0.0))
+                                })
                     except:
                         pass
 
@@ -476,6 +431,67 @@ class BridgeLogic:
                     self.tracker.update(curr_lap, curr_fuel, curr_ve, in_pits)
                     stats = self.tracker.get_stats()
 
+                    # --- VEHICLE TRACKING ---
+                    all_vehicles = []
+                    try:
+                        count = scoring.vehicle_count()
+                        for i in range(count):
+                            v = scoring.get_vehicle_scoring(i)
+
+                            vid = v.get('id')
+                            v_in_pits = (v.get('in_pits') == 1)
+                            v_laps = v.get('laps', 0)
+                            game_pit_count = v.get('pit_stops', 0)
+
+                            if vid not in vehicle_trackers:
+                                vehicle_trackers[vid] = {
+                                    'last_pit_lap': v_laps if v_laps > 0 else 0,
+                                    'was_in_pits': v_in_pits,
+                                    'pit_count': game_pit_count
+                                }
+
+                            tracker = vehicle_trackers[vid]
+                            if not tracker['was_in_pits'] and v_in_pits:
+                                tracker['pit_count'] += 1
+                            if tracker['was_in_pits'] and not v_in_pits:
+                                tracker['last_pit_lap'] = v_laps
+
+                            tracker['was_in_pits'] = v_in_pits
+                            if game_pit_count > tracker['pit_count']:
+                                tracker['pit_count'] = game_pit_count
+                            if tracker['last_pit_lap'] > v_laps:
+                                tracker['last_pit_lap'] = 0
+
+                            v['stint_laps'] = max(0, v_laps - tracker['last_pit_lap'])
+                            v['pit_stops'] = tracker['pit_count']
+
+                            all_vehicles.append(v)
+                    except:
+                        pass
+
+                    # Leader & Position
+                    leader = next((v for v in all_vehicles if v['position'] == 1), None)
+                    leader_laps = leader['laps'] if leader else 0
+
+                    time_info = scoring.time_info()
+                    time_info['session'] = current_sess_name
+
+                    elapsed_time = time_info.get("current", 0)
+                    leader_avg = 0
+                    if leader_laps > 0 and elapsed_time > 0:
+                        leader_avg = elapsed_time / leader_laps
+
+                    # Calcul Position Joueur
+                    my_position = scor_veh.get('position', 0)
+                    my_class = scor_veh.get('class', '')
+                    class_vehicles = [v for v in all_vehicles if v.get('class') == my_class]
+                    class_vehicles.sort(key=lambda x: x.get('position', 999))
+                    for i, v in enumerate(class_vehicles):
+                        if v['id'] == scor_veh.get('id'):
+                            my_position = i + 1
+                            break
+                    scor_veh['classPosition'] = my_position
+
                     payload = {
                         "teamId": self.team_id,
                         "driverName": game_driver,
@@ -484,6 +500,7 @@ class BridgeLogic:
                         "averageConsumptionFuel": stats["averageConsumptionFuel"],
                         "lastLapVEConsumption": stats["lastLapVEConsumption"],
                         "averageConsumptionVE": stats["averageConsumptionVE"],
+                        "sessionTimeRemainingSeconds": max(0, time_info.get("end", 0) - time_info.get("current", 0)),
                         "weatherForecast": forecast_data,
                         "telemetry": {
                             "gear": telemetry.gear(idx),
@@ -501,14 +518,18 @@ class BridgeLogic:
                                       "compounds": telemetry.tire_compound_name(idx)},
                             "electric": telemetry.electric_data(idx),
                             "virtual_energy": curr_ve,
-                            "max_virtual_energy": 100.0
+                            "max_virtual_energy": 100.0,
+                            "leaderLaps": leader_laps,
+                            "leaderAvgLapTime": leader_avg,
+                            "position": my_position,
+                            "lastLap": telemetry.id(idx)
                         },
                         "scoring": {
                             "track": scoring.track_name(),
-                            "time": scoring.time_info(),
+                            "time": time_info,
                             "flags": scoring.flag_state(),
                             "weather": scoring.weather_env(),
-                            "vehicles": [scoring.get_vehicle_scoring(i) for i in range(scoring.vehicle_count())],
+                            "vehicles": all_vehicles,
                             "vehicle_data": scor_veh
                         },
                         "rules": {
@@ -528,14 +549,9 @@ class BridgeLogic:
                     }
 
                     if self.running and self.session_id == my_session_id:
-                        if self.connector:
-                            self.connector.send_data(payload)
-
+                        if self.connector: self.connector.send_data(payload)
                         last_update_time = current_time
-                        self.set_status(f"LIVE ({game_driver})", COLORS["accent"])
-
-                        if self.debug_mode:
-                            self.log(f"payload = {payload}")
+                        self.set_status(f"LIVE ({game_driver}) P{my_position}", COLORS["accent"])
 
                 elif not status['is_driving']:
                     self.set_status("IDLE (NOT DRIVING)", "#94a3b8")
@@ -553,18 +569,16 @@ class BridgeLogic:
                     self.set_status("RECONNECTING...", COLORS["warning"])
                 else:
                     break
-
             time.sleep(0.01)
 
 
 class BridgeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"LMU Telemetry Bridge - {__version__}")
+        self.root.title(f"LMU Telemetry Bridge (Python) - {__version__}")
         self.root.geometry("500x700")
         self.root.configure(bg=COLORS["bg"])
         self.root.resizable(False, False)
-
         style = ttk.Style()
         style.theme_use('clam')
         style.configure("TLabel", background=COLORS["bg"], foreground=COLORS["text"], font=("Segoe UI", 10))
@@ -573,54 +587,64 @@ class BridgeApp:
         header_frame.pack(pady=20)
         tk.Label(header_frame, text="Property of FBT", font=("Segoe UI", 24, "bold italic"), bg=COLORS["bg"],
                  fg="white").pack()
-        tk.Label(header_frame, text="CLOUD BRIDGE", font=("Segoe UI", 10, "bold"), bg=COLORS["bg"],
+        tk.Label(header_frame, text="CLOUD BRIDGE (PYTHON)", font=("Segoe UI", 10, "bold"), bg=COLORS["bg"],
                  fg=COLORS["accent"]).pack()
-        tk.Label(header_frame, text=f"{__version__}", font=("Segoe UI", 8), bg=COLORS["bg"], fg="#475569").pack(
-            pady=(2, 0))
+
         form_frame = tk.Frame(root, bg=COLORS["panel"], padx=20, pady=20)
         form_frame.pack(padx=30, fill="x", pady=10)
-
         tk.Label(form_frame, text="NOM DE LA LINE UP (ID)", bg=COLORS["panel"], fg="#94a3b8",
                  font=("Segoe UI", 8, "bold")).pack(anchor="w")
         self.ent_lineup = tk.Entry(form_frame, bg=COLORS["input"], fg="white", font=("Segoe UI", 12), relief="flat",
                                    insertbackground="white")
         self.ent_lineup.pack(fill="x", pady=(5, 15), ipady=5)
-
         tk.Label(form_frame, text="VOTRE PSEUDO", bg=COLORS["panel"], fg="#94a3b8", font=("Segoe UI", 8, "bold")).pack(
             anchor="w")
         self.ent_pseudo = tk.Entry(form_frame, bg=COLORS["input"], fg="white", font=("Segoe UI", 12), relief="flat",
                                    insertbackground="white")
-        self.ent_pseudo.pack(fill="x", pady=(5, 20), ipady=5)
+        self.ent_pseudo.pack(fill="x", pady=(5, 15), ipady=5)
+
+        # --- OPTIONS (Checkboxes) ---
+        options_frame = tk.Frame(form_frame, bg=COLORS["panel"])
+        options_frame.pack(fill="x", pady=(0, 15))
+
+        # Checkbox Analyse (Défaut: False)
+        self.var_analysis = tk.BooleanVar(value=False)
+        cb_analysis = tk.Checkbutton(options_frame, text="ENREGISTRER SESSION (ANALYSE)", variable=self.var_analysis,
+                                     bg=COLORS["panel"], fg="white", selectcolor=COLORS["bg"],
+                                     activebackground=COLORS["panel"], activeforeground="white",
+                                     font=("Segoe UI", 9, "bold"))
+        cb_analysis.pack(anchor="w")
+
+        # Checkbox Debug (Défaut: False)
+        self.var_debug = tk.BooleanVar(value=False)
+        cb_debug = tk.Checkbutton(options_frame, text="MODE DEBUG (LOGS)", variable=self.var_debug,
+                                  bg=COLORS["panel"], fg=COLORS["debug"], selectcolor=COLORS["bg"],
+                                  activebackground=COLORS["panel"], activeforeground=COLORS["debug"],
+                                  font=("Segoe UI", 8), command=self.toggle_debug)
+        cb_debug.pack(anchor="w")
+        # ----------------------------
 
         self.btn_start = tk.Button(form_frame, text="CONNEXION AU CLOUD", bg=COLORS["accent"], fg="white",
                                    font=("Segoe UI", 11, "bold"), relief="flat", cursor="hand2", command=self.on_start)
         self.btn_start.pack(fill="x", ipady=8)
-
         self.btn_stop = tk.Button(form_frame, text="DÉCONNEXION", bg=COLORS["danger"], fg="white",
                                   font=("Segoe UI", 11, "bold"), relief="flat", cursor="hand2", command=self.on_stop)
-
         self.lbl_status = tk.Label(root, text="READY", bg=COLORS["bg"], fg="#94a3b8", font=("Consolas", 10, "bold"))
         self.lbl_status.pack(pady=5)
-
-        self.var_debug = tk.BooleanVar(value=False)
-        self.chk_debug = tk.Checkbutton(root, text="Debug Mode", variable=self.var_debug, bg=COLORS["bg"], fg="#94a3b8",
-                                        selectcolor=COLORS["panel"], activebackground=COLORS["bg"],
-                                        activeforeground="white",
-                                        font=("Segoe UI", 9), command=self.toggle_debug)
-        self.chk_debug.pack(pady=0)
 
         self.txt_log = scrolledtext.ScrolledText(root, bg="#020408", fg="#22c55e", font=("Consolas", 9), height=12,
                                                  relief="flat")
         self.txt_log.pack(fill="both", expand=True, padx=30, pady=(10, 30))
         self.txt_log.config(state=tk.DISABLED)
-
         handler = TextHandler(self.txt_log)
         formatter = logging.Formatter('%(message)s')
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)
         logging.getLogger().setLevel(logging.INFO)
-
         self.logic = BridgeLogic(self.log, self.set_status)
+
+    def toggle_debug(self):
+        self.logic.set_debug(self.var_debug.get())
 
     def log(self, msg):
         self.root.after(0, lambda: self._log_safe(msg))
@@ -628,48 +652,42 @@ class BridgeApp:
     def _log_safe(self, msg):
         try:
             self.txt_log.config(state=tk.NORMAL)
-            if float(self.txt_log.index('end')) > 500:
-                self.txt_log.delete('1.0', '100.0')
+            if float(self.txt_log.index('end')) > 500: self.txt_log.delete('1.0', '100.0')
             self.txt_log.insert(tk.END, f"> {msg}\n")
             self.txt_log.see(tk.END)
             self.txt_log.config(state=tk.DISABLED)
-        except Exception:
+        except:
             pass
 
     def set_status(self, text, color):
         self.root.after(0, lambda: self.lbl_status.config(text=text, fg=color))
 
-    def toggle_debug(self):
-        self.logic.set_debug(self.var_debug.get())
-
     def on_start(self):
-        lineup = self.ent_lineup.get().strip()
-        pseudo = self.ent_pseudo.get().strip()
-        if not lineup or not pseudo:
-            messagebox.showwarning("Info", "Remplissez les champs.")
-            return
+        l, p = self.ent_lineup.get().strip(), self.ent_pseudo.get().strip()
+        ana = self.var_analysis.get()
+        if not l or not p: return messagebox.showwarning("Info", "Remplissez les champs.")
         self.btn_start.config(state=tk.DISABLED, text="CONNEXION...")
-        threading.Thread(target=self._check_and_start, args=(lineup, pseudo)).start()
+        threading.Thread(target=self._check_and_start, args=(l, p, ana)).start()
 
-    def _check_and_start(self, lineup, pseudo):
+    def _check_and_start(self, l, p, ana):
         if self.logic.connect_vps():
             self.log(f"☁️ Connecté au VPS !")
             self._activate_ui(True)
-            self.logic.start_loop(lineup, pseudo)
+            self.logic.start_loop(l, p, ana)
         else:
             self.log("❌ Échec connexion VPS.")
             self.root.after(0, lambda: self.btn_start.config(state=tk.NORMAL, text="CONNEXION AU CLOUD"))
 
     def _activate_ui(self, active):
         if active:
-            self.ent_lineup.config(state=tk.DISABLED)
+            self.ent_lineup.config(state=tk.DISABLED);
             self.ent_pseudo.config(state=tk.DISABLED)
-            self.btn_start.pack_forget()
+            self.btn_start.pack_forget();
             self.btn_stop.pack(fill="x", ipady=8)
         else:
-            self.ent_lineup.config(state=tk.NORMAL)
+            self.ent_lineup.config(state=tk.NORMAL);
             self.ent_pseudo.config(state=tk.NORMAL)
-            self.btn_stop.pack_forget()
+            self.btn_stop.pack_forget();
             self.btn_start.pack(fill="x", ipady=8)
             self.btn_start.config(state=tk.NORMAL, text="CONNEXION AU CLOUD")
 
@@ -690,8 +708,8 @@ class BridgeApp:
 if __name__ == "__main__":
     try:
         check_and_update()
-    except Exception as e:
-        print(f"Erreur module mise à jour: {e}")
+    except:
+        pass
     root = tk.Tk()
     app = BridgeApp(root)
     root.mainloop()

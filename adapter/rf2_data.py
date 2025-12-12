@@ -216,20 +216,40 @@ class WeatherData(DataAdapter):
     __slots__ = ()
 
     def info(self) -> dict:
-        winfo = self.shmm.Rf2Weather.mWeatherInfo
+        # LMU BUG FIX: Le module Weather est souvent vide (0 Kelvin), ce qui donne -273°C.
+        # On va chercher les infos dans le module Scoring si nécessaire.
 
-        # CORRECTION PLUIE : mRaining est un tableau, on prend le max pour éviter le crash
+        winfo = self.shmm.Rf2Weather.mWeatherInfo
+        sinfo = self.shmm.rf2ScorInfo  # Fallback sur le Scoring
+
+        # Récupération Température (Si Kelvin < 10, c'est buggé -> on prend le Scoring)
+        ambient_k = rmnan(winfo.mAmbientTempK)
+        if ambient_k < 10.0:
+            ambient_c = rmnan(sinfo.mAmbientTemp)
+        else:
+            ambient_c = ambient_k - 273.15
+
+        # Récupération Pluie (Si mRaining du weather vide -> on prend le Scoring)
+        rain_val = 0.0
         try:
-            # Convertir l'objet CTypes en liste Python avant de faire max()
             rain_val = max(list(winfo.mRaining))
         except:
-            rain_val = 0.0
+            pass
+
+        # Si pas de pluie détectée dans Weather, on regarde le Scoring
+        if rain_val <= 0.0:
+            rain_val = rmnan(sinfo.mRaining)
+
+        # Récupération Nuages (Scoring mDarkCloud est souvent plus fiable sur LMU)
+        clouds = rmnan(winfo.mCloudiness)
+        if clouds <= 0.0:
+            clouds = rmnan(sinfo.mDarkCloud)
 
         return {
             "et": rmnan(winfo.mET),
-            "cloudiness": rmnan(winfo.mCloudiness),
-            "ambient_temp": rmnan(winfo.mAmbientTempK) - 273.15,
-            "rain_intensity": rmnan(rain_val)
+            "cloudiness": clouds,
+            "ambient_temp": ambient_c,
+            "rain_intensity": rain_val
         }
 
     # AJOUTER CETTE MÉTHODE
