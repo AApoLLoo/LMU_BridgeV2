@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 def get_latest_release_info():
     """
-    Interroge l'API GitHub pour récupérer la dernière version.
-    Retourne (version_str, download_url) ou (None, None).
+    Récupère la dernière release (même si c'est une Pre-release).
     """
-    url = f"https://api.github.com/repos/{REPO_NAME}/releases/latest"
+    # MODIFICATION : On enlève "/latest" pour avoir la liste complète
+    url = f"https://api.github.com/repos/{REPO_NAME}/releases"
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": f"{APP_NAME}/{CURRENT_VERSION}"
@@ -29,19 +29,31 @@ def get_latest_release_info():
     try:
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
-            data = response.json()
+            releases = response.json()
+
+            # Si la liste est vide
+            if not releases:
+                return None, None
+
+            # On prend le premier élément de la liste (le plus récent)
+            data = releases[0]
+
             tag_name = data.get("tag_name", "").lstrip("v")
 
             # Récupérer l'URL de l'asset (l'exe)
             assets = data.get("assets", [])
             download_url = None
             for asset in assets:
-                # On cherche un fichier .exe (ou ajustez selon le nom de votre fichier)
                 if asset["name"].endswith(".exe"):
                     download_url = asset["browser_download_url"]
                     break
 
             return tag_name, download_url
+
+        elif response.status_code == 404:
+            logger.error("Erreur 404: Repo introuvable ou Privé.")
+            return None, None
+
     except Exception as e:
         logger.error(f"Erreur update check: {e}")
 
@@ -106,8 +118,8 @@ def perform_update(download_url):
 
 
 def check_and_update():
-    """Fonction principale à appeler au démarrage."""
-    # Nettoyage silencieux des vieux fichiers .old au lancement
+    """Fonction principale de DEBUG."""
+    # Nettoyage
     if getattr(sys, 'frozen', False):
         old_exe = sys.executable + ".old"
         if os.path.exists(old_exe):
@@ -115,6 +127,36 @@ def check_and_update():
                 os.remove(old_exe)
             except:
                 pass
+
+    # DEBUG: On affiche ce qu'on cherche
+    ctypes.windll.user32.MessageBoxW(0, f"Je cherche une maj pour : {REPO_NAME}\nMa version : {CURRENT_VERSION}",
+                                     "Debug Start", 0)
+
+    try:
+        latest_version, download_url = get_latest_release_info()
+    except Exception as e:
+        ctypes.windll.user32.MessageBoxW(0, f"Erreur API GitHub : {e}", "Erreur", 0x10)
+        return
+
+    # DEBUG: On affiche ce qu'on a trouvé
+    if latest_version is None:
+        ctypes.windll.user32.MessageBoxW(0, "Impossible de récupérer les infos GitHub (Repo introuvable ?)", "Erreur",
+                                         0x10)
+        return
+
+    msg = f"Dernière version trouvée : {latest_version}\nURL : {download_url}"
+    ctypes.windll.user32.MessageBoxW(0, msg, "Résultat GitHub", 0)
+
+    if latest_version != CURRENT_VERSION:
+        if download_url:
+            if ask_user_confirmation(latest_version):
+                perform_update(download_url)
+        else:
+            ctypes.windll.user32.MessageBoxW(0,
+                                             "Nouvelle version détectée, mais AUCUN fichier .exe trouvé dans la release !",
+                                             "Erreur Asset", 0x10)
+    else:
+        ctypes.windll.user32.MessageBoxW(0, "Aucune mise à jour nécessaire (Versions identiques).", "Info", 0)
 
     print(f"Vérification des mises à jour... (v{CURRENT_VERSION})")
     latest_version, download_url = get_latest_release_info()
