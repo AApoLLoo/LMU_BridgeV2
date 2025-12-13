@@ -1,11 +1,11 @@
-import customtkinter as ctk  # NOUVELLE LIBRAIRIE UI
+import customtkinter as ctk
 import threading
 import time
 import sys
 import os
 import logging
 import requests
-from tkinter import scrolledtext  # On garde pour le log (compatible ctk)
+from tkinter import scrolledtext
 from update import check_and_update
 from version import __version__
 
@@ -28,21 +28,20 @@ except ImportError as e:
     sys.exit(1)
 
 # --- CONFIGURATION DESIGN ---
-ctk.set_appearance_mode("Dark")  # Mode sombre forcé
-ctk.set_default_color_theme("dark-blue")  # Thème couleur
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("dark-blue")
 
-# Couleurs personnalisées (Racing Style)
 COLORS = {
-    "bg": "#0B0F19",  # Fond ultra sombre
-    "card": "#151B2B",  # Fond des panneaux
-    "accent": "#6366F1",  # Indigo (Marque)
+    "bg": "#0B0F19",
+    "card": "#151B2B",
+    "accent": "#6366F1",
     "accent_hover": "#4F46E5",
-    "success": "#10B981",  # Vert
-    "danger": "#EF4444",  # Rouge
-    "warning": "#F59E0B",  # Orange (Warning)
-    "debug": "#A855F7",  # Violet (Debug)
-    "text": "#F8FAFC",  # Blanc cassé
-    "text_dim": "#64748B"  # Gris
+    "success": "#10B981",
+    "danger": "#EF4444",
+    "warning": "#F59E0B",
+    "debug": "#A855F7",
+    "text": "#F8FAFC",
+    "text_dim": "#64748B"
 }
 
 VPS_URL = "https://api.racetelemetrybyfbt.com"
@@ -60,7 +59,7 @@ class MockParentAPI:
         self.isActive = True
 
 
-# --- LOGIQUE MÉTIER (INCHANGÉE) ---
+# --- LOGIQUE MÉTIER ---
 
 class ConsumptionTracker:
     def __init__(self, log_func):
@@ -116,27 +115,17 @@ class TelemetryRecorder:
         self.last_dist = -1
 
     def update(self, lap_number, vehicle_idx, telemetry, vehicle, scoring):
-        # Changement de tour détecté
         if self.current_lap != -1 and lap_number > self.current_lap:
             last_lap_time = 0
-
-            # --- FIX SYNCHRONISATION SCORING ---
-            # On attend un peu que le Scoring se mette à jour (max 500ms)
-            # pour être sûr de choper le temps du tour qui vient de finir.
             if hasattr(scoring, 'get_vehicle_scoring'):
-                for _ in range(10):  # 10 essais de 50ms = 500ms max
+                for _ in range(10):
                     v_data = scoring.get_vehicle_scoring(vehicle_idx)
-                    # Si le nombre de tours complétés (laps) correspond au tour qu'on flush
-                    # OU si on a un temps valide > 0, on le prend.
                     laps_completed = v_data.get('laps', -1)
                     t_time = v_data.get('last_lap', 0)
-
                     if laps_completed >= self.current_lap and t_time > 0:
-                        last_lap_time = t_time
+                        last_lap_time = t_time;
                         break
                     time.sleep(0.05)
-            # -----------------------------------
-
             self.flush_lap(self.current_lap, last_lap_time)
             self.buffer = [];
             self.last_dist = -1
@@ -151,29 +140,21 @@ class TelemetryRecorder:
         if vehicle.speed(vehicle_idx) > 1:
             if self.last_dist == -1 or abs(dist - self.last_dist) > 2.0:
                 self.buffer.append({
-                    "d": round(dist, 1),
-                    "s": round(vehicle.speed(vehicle_idx), 1),
+                    "d": round(dist, 1), "s": round(vehicle.speed(vehicle_idx), 1),
                     "t": round(telemetry.input_throttle(vehicle_idx) * 100, 0),
                     "b": round(telemetry.input_brake(vehicle_idx) * 100, 0),
                     "g": telemetry.gear(vehicle_idx),
-
-                    # --- NOUVELLES DONNÉES ---
                     "ut": round(telemetry.unfiltered_throttle(vehicle_idx) * 100, 0),
                     "ub": round(telemetry.unfiltered_brake(vehicle_idx) * 100, 0),
                     "uc": round(telemetry.unfiltered_clutch(vehicle_idx) * 100, 0),
-                    # -------------------------
-
                     "w": round(telemetry.input_steering(vehicle_idx), 2),
                     "f": round(telemetry.fuel_level(vehicle_idx), 2),
                     "r": round(telemetry.rpm(vehicle_idx), 0),
                     "ve": round(telemetry.virtual_energy(vehicle_idx), 1),
                     "tw": round(telemetry.tire_wear(vehicle_idx)[0], 1),
-
-                    # --- NOUVELLES DONNÉES (AnalysisView) ---
                     "drag": round(telemetry.drag(vehicle_idx), 1),
                     "df_f": round(telemetry.downforce_front(vehicle_idx), 1),
                     "df_r": round(telemetry.downforce_rear(vehicle_idx), 1),
-
                     "susp_def": [round(x, 4) for x in telemetry.suspension_deflection(vehicle_idx)],
                     "rh": [round(x, 4) for x in telemetry.ride_height(vehicle_idx)],
                     "susp_f": [round(x, 0) for x in telemetry.suspension_force(vehicle_idx)],
@@ -210,11 +191,12 @@ class BridgeLogic:
         self.debug_mode = False;
         self.connector = None;
         self.rf2_info = None;
-        self.rest_info = None
+        self.rest_info = None;
         self.thread = None;
         self.line_up_name = "";
         self.team_id = "";
-        self.driver_pseudo = ""
+        self.driver_pseudo = "";
+        self.password = ""
         self.tracker = ConsumptionTracker(self.log);
         self.session_id = 0;
         self.recorder = None;
@@ -224,33 +206,33 @@ class BridgeLogic:
         self.debug_mode = enabled
         self.log(f"🔧 Mode Debug : {'ACTIVÉ' if enabled else 'DÉSACTIVÉ'}")
 
-    def connect_vps(self):
-        if self.connector and self.connector.is_connected: return True
+    def connect_vps(self, username, password):
+        if self.connector: self.connector.disconnect()
         try:
-            self.connector = SocketConnector(VPS_URL, port=None)
+            self.connector = SocketConnector(VPS_URL, port=None, username=username, password=password)
             self.connector.connect()
-            return True
+            time.sleep(2)
+            if self.connector.is_connected:
+                return True
+            else:
+                self.log("❌ Échec Authentification (Check Logs)")
+                return False
         except Exception as e:
             self.log(f"❌ Erreur VPS: {e}")
             return False
 
-    def start_loop(self, line_up_name, driver_pseudo, analysis_enabled):
+    def start_loop(self, line_up_name, driver_pseudo, password, analysis_enabled):
         self.session_id += 1;
         current_session_id = self.session_id
         self.line_up_name = line_up_name;
         self.team_id = normalize_id(line_up_name);
         self.driver_pseudo = driver_pseudo
+        self.password = password
         self.analysis_enabled = analysis_enabled;
         self.running = True;
         self.tracker.reset()
 
         self.log(f"📊 Analyse : {'ON' if analysis_enabled else 'OFF'}")
-
-        if not self.connector: self.connect_vps()
-        if self.connector and self.connector.is_connected:
-            self.log(f"🔗 Connexion LineUp: {self.team_id}")
-            self.connector.join_lineup(self.team_id, self.driver_pseudo)
-
         self.thread = threading.Thread(target=self._run, args=(current_session_id,), daemon=True)
         self.thread.start()
 
@@ -275,11 +257,23 @@ class BridgeLogic:
         pit_strategy = PitStrategyData(port=6397);
         mock_parent = MockParentAPI();
         self.rest_info = RestAPIInfo(mock_parent)
-        self.rest_info.setConnection(
-            {"url_host": "localhost", "url_port_lmu": 6397, "connection_timeout": 1.0, "connection_retry": 3,
-             "connection_retry_delay": 2, "restapi_update_interval": 50, "enable_restapi_access": True,
-             "enable_weather_info": True, "enable_session_info": True, "enable_garage_setup_info": True,
-             "enable_vehicle_info": True, "enable_energy_remaining": True})
+
+        # CONFIGURATION RESTAPI COMPLÈTE
+        self.rest_info.setConnection({
+            "url_host": "localhost",
+            "url_port_lmu": 6397,
+            "connection_timeout": 1.0,
+            "connection_retry": 3,
+            "connection_retry_delay": 2,
+            "restapi_update_interval": 50,  # Intervalle requis
+            "enable_restapi_access": True,
+            "enable_weather_info": True,
+            "enable_session_info": True,
+            "enable_garage_setup_info": True,
+            "enable_vehicle_info": True,
+            "enable_energy_remaining": True
+        })
+
         telemetry = scoring = rules = extended = pit_info = weather = vehicle_helper = None
         last_game_check = 0;
         last_update_time = 0;
@@ -302,13 +296,20 @@ class BridgeLogic:
                         self.rest_info.start()
                         self.log("🎮 Jeu connecté !");
                         self.set_status("CONNECTED", COLORS["success"])
+
+                        # INSTANCIATION DES MODULES
                         telemetry = TelemetryData(self.rf2_info, self.rest_info);
                         scoring = ScoringData(self.rf2_info)
                         rules = RulesData(self.rf2_info);
                         extended = ExtendedData(self.rf2_info);
-                        pit_info = PitInfoData(self.rf2_info)
-                        weather = WeatherData(self.rf2_info);
-                        vehicle_helper = Vehicle(self.rf2_info)
+                        pit_info = PitInfoData(self.rf2_info);
+
+                        # === CORRECTION MÉTÉO ICI ===
+                        # On passe bien self.rest_info pour que weather.forecast() fonctionne
+                        weather = WeatherData(self.rf2_info, self.rest_info);
+                        # ============================
+
+                        vehicle_helper = Vehicle(self.rf2_info);
                         self.tracker.reset();
                         vehicle_trackers = {}
                     except:
@@ -340,42 +341,15 @@ class BridgeLogic:
                             self.log(f"🏁 Session : {current_sess_name}")
                             if self.recorder: self.recorder.team_id = current_history_id
                             vehicle_trackers = {}
-
-                            # --- FIX CLASS DETECTION ---
-                            car_cat = "Unknown"
-                            try:
-                                # Essai 1 : Via l'index (Méthode rapide)
-                                veh_idx = status.get('vehicle_index', -1)
-                                if veh_idx != -1:
-                                    v_data = scoring.get_vehicle_scoring(veh_idx)
-                                    car_cat = v_data.get('class', 'Unknown')
-
-                                # Essai 2 : Balayage complet (Méthode robuste)
-                                if car_cat == "Unknown" or car_cat == "":
-                                    count = scoring.vehicle_count()
-                                    for i in range(count):
-                                        v = scoring.get_vehicle_scoring(i)
-                                        if v.get('is_player') == 1:
-                                            car_cat = v.get('class', 'Unknown')
-                                            break
-                            except:
-                                pass
-
-                            self.log(f"🚗 Classe détectée : {car_cat}")
-                            # ---------------------------
-
-                            if self.connector:
-                                self.connector.register_lineup(self.team_id, self.driver_pseudo, current_history_id,
-                                                               current_sess_name, car_category=car_cat)
-                                if self.analysis_enabled:
-                                    try:
-                                        requests.post(f"{VPS_URL}/api/sessions/start",
-                                                      json={"sessionId": current_history_id,
-                                                            "driver": status.get('driver_name', self.driver_pseudo),
-                                                            "circuit": scoring.track_name() if scoring else "Unknown"},
-                                                      timeout=2)
-                                    except:
-                                        pass
+                            if self.analysis_enabled:
+                                try:
+                                    requests.post(f"{VPS_URL}/api/sessions/start",
+                                                  json={"sessionId": current_history_id,
+                                                        "driver": status.get('driver_name', self.driver_pseudo),
+                                                        "circuit": scoring.track_name() if scoring else "Unknown"},
+                                                  timeout=2)
+                                except:
+                                    pass
                             last_session_type = current_sess_type
                     except:
                         pass
@@ -391,12 +365,12 @@ class BridgeLogic:
                     curr_ve = telemetry.virtual_energy(idx);
                     curr_lap = telemetry.lap_number(idx)
                     try:
-                        if self.analysis_enabled:
-                            self.recorder.update(curr_lap, idx, telemetry, vehicle_helper, scoring)
+                        if self.analysis_enabled: self.recorder.update(curr_lap, idx, telemetry, vehicle_helper,
+                                                                       scoring)
                     except Exception as e:
-                        # Log pour débugger le recorder
                         self.log(f"ERREUR RECORDER: {e}")
 
+                    # MÉTÉO
                     forecast_data = []
                     try:
                         if hasattr(weather, 'forecast'):
@@ -406,20 +380,33 @@ class BridgeLogic:
                                 k = 'practice'
                             elif current_sess_type < 9:
                                 k = 'qualify'
-                            for node in raw_f.get(k, []): forecast_data.append(
-                                {"rain": float(node.get("rain_chance", 0.0)) / 100.0,
-                                 "cloud": min(max(float(node.get("sky", 0)), 0) / 4.0, 1.0),
-                                 "temp": float(node.get("temp", 0.0))})
-                    except:
-                        pass
+
+                            # DEBUG
+                            if self.debug_mode and not raw_f:
+                                self.log(f"⚠️ Météo vide. Vérifiez l'API REST.")
+
+                            for node in raw_f.get(k, []):
+                                forecast_data.append({"rain": float(node.get("rain_chance", 0.0)) / 100.0,
+                                                      "cloud": min(max(float(node.get("sky", 0)), 0) / 4.0, 1.0),
+                                                      "temp": float(node.get("temp", 0.0))})
+                    except Exception as e:
+                        if self.debug_mode: self.log(f"Erreur Météo: {e}")
 
                     try:
-                        scor_veh = scoring.get_vehicle_scoring(idx);
-                        in_pits = (scor_veh.get('in_pits', 0) == 1)
+                        scor_veh = scoring.get_vehicle_scoring(idx); in_pits = (scor_veh.get('in_pits', 0) == 1)
                     except:
                         in_pits = False
                     self.tracker.update(curr_lap, curr_fuel, curr_ve, in_pits);
                     stats = self.tracker.get_stats()
+
+                    # TEMPÉRATURES
+                    oil_t = 0.0
+                    water_t = 0.0
+                    try:
+                        oil_t = telemetry.temp_oil(idx)
+                        water_t = telemetry.temp_water(idx)
+                    except:
+                        pass
 
                     all_vehicles = []
                     try:
@@ -472,7 +459,7 @@ class BridgeLogic:
                             "fuel": curr_fuel, "fuelCapacity": telemetry.fuel_capacity(idx),
                             "inputs": {"thr": telemetry.input_throttle(idx), "brk": telemetry.input_brake(idx),
                                        "clt": telemetry.input_clutch(idx), "str": telemetry.input_steering(idx)},
-                            "temps": {"oil": telemetry.temp_oil(idx), "water": telemetry.temp_water(idx)},
+                            "temps": {"oil": oil_t, "water": water_t},
                             "tires": {"temp": telemetry.tire_temps(idx), "press": telemetry.tire_pressure(idx),
                                       "wear": telemetry.tire_wear(idx), "brake_wear": telemetry.brake_wear(idx),
                                       "type": telemetry.surface_type(idx), "brake_temp": telemetry.brake_temp(idx),
@@ -496,7 +483,10 @@ class BridgeLogic:
                         if self.connector: self.connector.send_data(payload)
                         last_update_time = current_time
                         self.set_status(f"LIVE | POS: P{my_pos} | DRIVER: {game_driver}", COLORS["accent"])
-
+                        if self.debug_mode and (oil_t == 0 or water_t == 0):
+                            # On loggue une fois toutes les 5 secondes pour ne pas spammer
+                            if int(time.time()) % 5 == 0:
+                                self.log(f"🔍 DEBUG TEMP: Huile={oil_t}, Eau={water_t}, RPM={telemetry.rpm(idx)}")
                 elif not status['is_driving']:
                     self.set_status("EN ATTENTE (PIT / SPECTATE)", COLORS["text_dim"]);
                     time.sleep(0.5)
@@ -516,69 +506,62 @@ class BridgeLogic:
             time.sleep(0.01)
 
 
-# --- INTERFACE GRAPHIQUE CUSTOMTKINTER ---
+# --- INTERFACE GRAPHIQUE ---
 
 class BridgeApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-
         self.title(f"LMU Bridge {__version__}")
-        self.geometry("450x650")
+        self.geometry("450x700")
         self.resizable(False, False)
 
-        # --- HEADER ---
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.pack(pady=(30, 20))
-
         self.lbl_title = ctk.CTkLabel(self.header_frame, text="FBT RACING", font=("Montserrat", 32, "bold"))
         self.lbl_title.pack()
-
-        self.lbl_subtitle = ctk.CTkLabel(self.header_frame, text="CLOUD TELEMETRY BRIDGE",
-                                         font=("Roboto", 12, "bold"), text_color=COLORS["accent"])
+        self.lbl_subtitle = ctk.CTkLabel(self.header_frame, text="SECURE TELEMETRY BRIDGE", font=("Roboto", 12, "bold"),
+                                         text_color=COLORS["accent"])
         self.lbl_subtitle.pack(pady=(0, 10))
 
-        # --- MAIN CARD ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COLORS["card"], corner_radius=15)
         self.main_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        # Inputs
-        self.ent_lineup = ctk.CTkEntry(self.main_frame, placeholder_text="ID LineUp (Nom Team)",
-                                       height=45, border_width=0, fg_color=COLORS["bg"])
-        self.ent_lineup.pack(fill="x", padx=20, pady=(25, 10))
+        # ID LineUp
+        self.ent_lineup = ctk.CTkEntry(self.main_frame, placeholder_text="ID LineUp (Nom Team)", height=45,
+                                       border_width=0, fg_color=COLORS["bg"])
+        self.ent_lineup.pack(fill="x", padx=20, pady=(20, 10))
 
-        self.ent_pseudo = ctk.CTkEntry(self.main_frame, placeholder_text="Nom Pilote (Pseudo)",
-                                       height=45, border_width=0, fg_color=COLORS["bg"])
-        self.ent_pseudo.pack(fill="x", padx=20, pady=(0, 20))
+        # Pseudo Pilote
+        self.ent_pseudo = ctk.CTkEntry(self.main_frame, placeholder_text="Votre Pseudo (Compte)", height=45,
+                                       border_width=0, fg_color=COLORS["bg"])
+        self.ent_pseudo.pack(fill="x", padx=20, pady=(0, 10))
 
-        # Switches
+        # Mot de passe (NOUVEAU)
+        self.ent_password = ctk.CTkEntry(self.main_frame, placeholder_text="Mot de passe Compte", height=45,
+                                         border_width=0, fg_color=COLORS["bg"], show="*")
+        self.ent_password.pack(fill="x", padx=20, pady=(0, 20))
+
         self.sw_analysis = ctk.CTkSwitch(self.main_frame, text="ENREGISTRER POUR ANALYSE",
                                          progress_color=COLORS["success"])
         self.sw_analysis.pack(pady=5)
-
-        self.sw_debug = ctk.CTkSwitch(self.main_frame, text="MODE DEBUG (LOGS)",
-                                      progress_color=COLORS["debug"], command=self.toggle_debug)
+        self.sw_debug = ctk.CTkSwitch(self.main_frame, text="MODE DEBUG (LOGS)", progress_color=COLORS["debug"],
+                                      command=self.toggle_debug)
         self.sw_debug.pack(pady=5)
 
-        # Buttons
-        self.btn_start = ctk.CTkButton(self.main_frame, text="START ENGINE",
-                                       height=50, font=("Segoe UI", 14, "bold"),
-                                       fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
-                                       command=self.on_start)
+        self.btn_start = ctk.CTkButton(self.main_frame, text="CONNEXION & START", height=50,
+                                       font=("Segoe UI", 14, "bold"), fg_color=COLORS["accent"],
+                                       hover_color=COLORS["accent_hover"], command=self.on_start)
         self.btn_start.pack(fill="x", padx=20, pady=(20, 10))
 
-        self.btn_stop = ctk.CTkButton(self.main_frame, text="DÉCONNEXION",
-                                      height=40, font=("Segoe UI", 12, "bold"),
-                                      fg_color=COLORS["danger"], hover_color="#DC2626",
-                                      command=self.on_stop)
+        self.btn_stop = ctk.CTkButton(self.main_frame, text="DÉCONNEXION", height=40, font=("Segoe UI", 12, "bold"),
+                                      fg_color=COLORS["danger"], hover_color="#DC2626", command=self.on_stop)
 
-        # Status Label
-        self.lbl_status = ctk.CTkLabel(self, text="READY TO RACE", font=("Consolas", 12, "bold"),
+        self.lbl_status = ctk.CTkLabel(self, text="LOGIN REQUIRED", font=("Consolas", 12, "bold"),
                                        text_color=COLORS["text_dim"])
         self.lbl_status.pack(side="bottom", pady=10)
 
-        # Logs
-        self.log_textbox = ctk.CTkTextbox(self.main_frame, height=150, fg_color="#000000",
-                                          text_color="#4ADE80", font=("Consolas", 10))
+        self.log_textbox = ctk.CTkTextbox(self.main_frame, height=150, fg_color="#000000", text_color="#4ADE80",
+                                          font=("Consolas", 10))
         self.log_textbox.pack(fill="both", expand=True, padx=20, pady=(10, 20))
         self.log_textbox.configure(state="disabled")
 
@@ -602,24 +585,27 @@ class BridgeApp(ctk.CTk):
     def on_start(self):
         l = self.ent_lineup.get().strip()
         p = self.ent_pseudo.get().strip()
+        pwd = self.ent_password.get().strip()
 
-        if not l or not p:
-            self.lbl_status.configure(text="CHAMPS REQUIS !", text_color=COLORS["warning"])
+        if not l or not p or not pwd:
+            self.lbl_status.configure(text="CHAMPS REQUIS (ID, Pseudo, MDP) !", text_color=COLORS["warning"])
             return
 
         self.btn_start.pack_forget()
         self.btn_stop.pack(fill="x", padx=20, pady=(20, 10))
         self.ent_lineup.configure(state="disabled")
         self.ent_pseudo.configure(state="disabled")
+        self.ent_password.configure(state="disabled")
 
-        threading.Thread(target=self._check_and_start, args=(l, p, self.sw_analysis.get() == 1)).start()
+        threading.Thread(target=self._check_and_start, args=(l, p, pwd, self.sw_analysis.get() == 1)).start()
 
-    def _check_and_start(self, l, p, ana):
-        if self.logic.connect_vps():
-            self.log_message("✅ CONNECTÉ AU CLOUD")
-            self.logic.start_loop(l, p, ana)
+    def _check_and_start(self, l, p, pwd, ana):
+        self.log_message("🔐 Authentification...")
+        if self.logic.connect_vps(p, pwd):
+            self.log_message("✅ IDENTIFICATION OK")
+            self.logic.start_loop(l, p, pwd, ana)
         else:
-            self.log_message("❌ ÉCHEC CONNEXION")
+            self.log_message("❌ ÉCHEC AUTHENTIFICATION")
             self.after(0, self.reset_ui)
 
     def on_stop(self):
@@ -636,6 +622,7 @@ class BridgeApp(ctk.CTk):
         self.btn_start.pack(fill="x", padx=20, pady=(20, 10))
         self.ent_lineup.configure(state="normal")
         self.ent_pseudo.configure(state="normal")
+        self.ent_password.configure(state="normal")
         self.log_message("--- SESSION TERMINÉE ---")
 
 
