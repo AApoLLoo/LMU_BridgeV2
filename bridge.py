@@ -484,7 +484,7 @@ class BridgeLogic:
                         },
                         "scoring": {"track": scoring.track_name(), "time": time_info, "flags": scoring.flag_state(),
                                     "weather": scoring.weather_env(), "vehicles": all_vehicles,
-                                    "vehicle_data": scor_veh},
+                                    "vehicle_data": scor_veh, "length": scoring.track_length()},
                         "rules": {"sc": rules.sc_info(), "yellow": rules.yellow_flag(),
                                   "my_status": rules.participant_status(idx)},
                         "pit": {"menu": pit_info.menu_status(), "strategy": pit_strategy.pit_estimate()},
