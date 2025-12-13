@@ -177,6 +177,7 @@ class ScoringData(DataAdapter):
             "red_lights_num": safe_int(info.mNumRedLights)
         }
     def track_name(self) -> str: return tostr(self.shmm.rf2ScorInfo.mTrackName)
+    def track_length(self) -> float: return rmnan(self.shmm.rf2ScorInfo.mLapDist)
     def session_type(self) -> int: return safe_int(self.shmm.rf2ScorInfo.mSession)
     def time_info(self) -> dict:
         info = self.shmm.rf2ScorInfo
