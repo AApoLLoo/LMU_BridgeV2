@@ -32,13 +32,24 @@ class TelemetryData(DataAdapter):
     def turbo_pressure(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mTurboBoostPressure)
     def fuel_level(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFuel)
     def fuel_capacity(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFuelCapacity)
+
+    # INPUTS FILTRÉS
     def input_throttle(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFilteredThrottle)
     def input_brake(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFilteredBrake)
     def input_clutch(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFilteredClutch)
     def input_steering(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFilteredSteering)
+
+    # INPUTS BRUTS (UNFILTERED) - NOUVEAU
+    def unfiltered_throttle(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mUnfilteredThrottle)
+    def unfiltered_brake(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mUnfilteredBrake)
+    def unfiltered_clutch(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mUnfilteredClutch)
+
+    # AERO - NOUVEAU
     def wing_front(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFrontWingHeight)
+    def drag(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mDrag)
     def downforce_front(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mFrontDownforce)
     def downforce_rear(self, index: int | None = None) -> float: return rmnan(self.shmm.rf2TeleVeh(index).mRearDownforce)
+
     def car_state(self, index: int | None = None) -> dict:
         veh = self.shmm.rf2TeleVeh(index)
         return {
@@ -47,6 +58,42 @@ class TelemetryData(DataAdapter):
             "ignition": safe_int(veh.mIgnitionStarter),
             "brake_bias": rmnan(veh.mRearBrakeBias)
         }
+
+    # VECTEURS FORCES & SUSPENSIONS - NOUVEAU
+    def suspension_deflection(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mSuspensionDeflection) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def ride_height(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mRideHeight) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def suspension_force(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mSuspForce) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def brake_pressure_list(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mBrakePressure) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def lateral_force(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mLateralForce) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def longitudinal_force(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mLongitudinalForce) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def tire_load(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mTireLoad) for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def tire_carcass_temp(self, index: int | None = None) -> list[float]:
+        return [rmnan(w.mTireCarcassTemperature) - 273.15 for w in self.shmm.rf2TeleVeh(index).mWheels]
+
+    def tire_inner_layer_temp(self, index: int | None = None) -> list[float]:
+        # Retourne la moyenne des 3 couches internes pour chaque roue
+        wheels = self.shmm.rf2TeleVeh(index).mWheels
+        res = []
+        for w in wheels:
+            temps = [rmnan(t) for t in w.mTireInnerLayerTemperature]
+            avg = sum(temps) / 3.0 if temps else 0.0
+            res.append(avg - 273.15)
+        return res
+
     def wheel_details(self, index: int | None = None) -> dict:
         wheels = self.shmm.rf2TeleVeh(index).mWheels
         data = {}
@@ -54,13 +101,15 @@ class TelemetryData(DataAdapter):
         for i, pos in pos_map.items():
             w = wheels[i]
             data[pos] = {
-                "brake_pressure": rmnan(w.mBrakePressure),  # Pression réelle (utile pour voir les blocages)
-                "camber": rmnan(w.mCamber),  # Carrossage (radians)
-                "load": rmnan(w.mTireLoad),  # Charge verticale (Newtons)
-                "grip_fract": rmnan(w.mGripFract),  # Perte d'adhérence
-                "temp_carcass": rmnan(w.mTireCarcassTemperature) - 273.15,  # Température interne (cœur du pneu)
-                "ride_height": rmnan(w.mRideHeight)  # Hauteur de caisse
+                "brake_pressure": rmnan(w.mBrakePressure),
+                "camber": rmnan(w.mCamber),
+                "load": rmnan(w.mTireLoad),
+                "grip_fract": rmnan(w.mGripFract),
+                "temp_carcass": rmnan(w.mTireCarcassTemperature) - 273.15,
+                "ride_height": rmnan(w.mRideHeight)
             }
+        return data
+
     def virtual_energy(self, index: int | None = None) -> float:
         if self.rest:
             try:
@@ -134,13 +183,6 @@ class ScoringData(DataAdapter):
         # mCurrentET = temps écoulé, mEndET = temps total de la session (ex: 24h)
         return {"current": rmnan(info.mCurrentET), "end": rmnan(info.mEndET), "max_laps": info.mMaxLaps}
     def game_phase(self) -> int: return safe_int(self.shmm.rf2ScorInfo.mGamePhase)
-    def flag_state(self) -> dict:
-        info = self.shmm.rf2ScorInfo
-        return {
-            "yellow_global": safe_int(info.mYellowFlagState),
-            "sector_flags": [safe_int(x) for x in info.mSectorFlag],
-            "in_realtime": safe_int(info.mInRealtime)
-        }
     def weather_env(self) -> dict:
         info = self.shmm.rf2ScorInfo
         # Utiliser cette temperature car plus fiable que mWeatherInfo pour l'instant
@@ -252,7 +294,6 @@ class WeatherData(DataAdapter):
             "rain_intensity": rain_val
         }
 
-    # AJOUTER CETTE MÉTHODE
     def forecast(self) -> dict:
         """Récupère les prévisions météo depuis l'API REST"""
         if not self.rest:

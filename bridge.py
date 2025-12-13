@@ -116,30 +116,74 @@ class TelemetryRecorder:
         self.last_dist = -1
 
     def update(self, lap_number, vehicle_idx, telemetry, vehicle, scoring):
+        # Changement de tour détecté
         if self.current_lap != -1 and lap_number > self.current_lap:
             last_lap_time = 0
+
+            # --- FIX SYNCHRONISATION SCORING ---
+            # On attend un peu que le Scoring se mette à jour (max 500ms)
+            # pour être sûr de choper le temps du tour qui vient de finir.
             if hasattr(scoring, 'get_vehicle_scoring'):
-                v_data = scoring.get_vehicle_scoring(vehicle_idx)
-                last_lap_time = v_data.get('last_lap', 0)
+                for _ in range(10):  # 10 essais de 50ms = 500ms max
+                    v_data = scoring.get_vehicle_scoring(vehicle_idx)
+                    # Si le nombre de tours complétés (laps) correspond au tour qu'on flush
+                    # OU si on a un temps valide > 0, on le prend.
+                    laps_completed = v_data.get('laps', -1)
+                    t_time = v_data.get('last_lap', 0)
+
+                    if laps_completed >= self.current_lap and t_time > 0:
+                        last_lap_time = t_time
+                        break
+                    time.sleep(0.05)
+            # -----------------------------------
+
             self.flush_lap(self.current_lap, last_lap_time)
             self.buffer = [];
             self.last_dist = -1
+
         self.current_lap = lap_number
         dist = 0
         if hasattr(telemetry, 'lap_distance'): dist = telemetry.lap_distance(vehicle_idx)
         if (dist == 0 or dist is None) and hasattr(scoring, 'get_vehicle_scoring'):
             v_data = scoring.get_vehicle_scoring(vehicle_idx);
             dist = v_data.get('lap_dist', 0)
+
         if vehicle.speed(vehicle_idx) > 1:
             if self.last_dist == -1 or abs(dist - self.last_dist) > 2.0:
                 self.buffer.append({
-                    "d": round(dist, 1), "s": round(vehicle.speed(vehicle_idx), 1),
+                    "d": round(dist, 1),
+                    "s": round(vehicle.speed(vehicle_idx), 1),
                     "t": round(telemetry.input_throttle(vehicle_idx) * 100, 0),
-                    "b": round(telemetry.input_brake(vehicle_idx) * 100, 0), "g": telemetry.gear(vehicle_idx),
+                    "b": round(telemetry.input_brake(vehicle_idx) * 100, 0),
+                    "g": telemetry.gear(vehicle_idx),
+
+                    # --- NOUVELLES DONNÉES ---
+                    "ut": round(telemetry.unfiltered_throttle(vehicle_idx) * 100, 0),
+                    "ub": round(telemetry.unfiltered_brake(vehicle_idx) * 100, 0),
+                    "uc": round(telemetry.unfiltered_clutch(vehicle_idx) * 100, 0),
+                    # -------------------------
+
                     "w": round(telemetry.input_steering(vehicle_idx), 2),
-                    "f": round(telemetry.fuel_level(vehicle_idx), 2), "r": round(telemetry.rpm(vehicle_idx), 0),
+                    "f": round(telemetry.fuel_level(vehicle_idx), 2),
+                    "r": round(telemetry.rpm(vehicle_idx), 0),
                     "ve": round(telemetry.virtual_energy(vehicle_idx), 1),
-                    "tw": round(telemetry.tire_wear(vehicle_idx)[0], 1)
+                    "tw": round(telemetry.tire_wear(vehicle_idx)[0], 1),
+
+                    # --- NOUVELLES DONNÉES (AnalysisView) ---
+                    "drag": round(telemetry.drag(vehicle_idx), 1),
+                    "df_f": round(telemetry.downforce_front(vehicle_idx), 1),
+                    "df_r": round(telemetry.downforce_rear(vehicle_idx), 1),
+
+                    "susp_def": [round(x, 4) for x in telemetry.suspension_deflection(vehicle_idx)],
+                    "rh": [round(x, 4) for x in telemetry.ride_height(vehicle_idx)],
+                    "susp_f": [round(x, 0) for x in telemetry.suspension_force(vehicle_idx)],
+                    "brk_tmp": [round(x, 1) for x in telemetry.brake_temp(vehicle_idx)],
+                    "brk_prs": [round(x, 3) for x in telemetry.brake_pressure_list(vehicle_idx)],
+                    "lat_f": [round(x, 0) for x in telemetry.lateral_force(vehicle_idx)],
+                    "long_f": [round(x, 0) for x in telemetry.longitudinal_force(vehicle_idx)],
+                    "t_load": [round(x, 0) for x in telemetry.tire_load(vehicle_idx)],
+                    "t_temp_c": [round(x, 1) for x in telemetry.tire_carcass_temp(vehicle_idx)],
+                    "t_temp_i": [round(x, 1) for x in telemetry.tire_inner_layer_temp(vehicle_idx)]
                 })
                 self.last_dist = dist
 
@@ -347,10 +391,11 @@ class BridgeLogic:
                     curr_ve = telemetry.virtual_energy(idx);
                     curr_lap = telemetry.lap_number(idx)
                     try:
-                        if self.analysis_enabled: self.recorder.update(curr_lap, idx, telemetry, vehicle_helper,
-                                                                       scoring)
-                    except:
-                        pass
+                        if self.analysis_enabled:
+                            self.recorder.update(curr_lap, idx, telemetry, vehicle_helper, scoring)
+                    except Exception as e:
+                        # Log pour débugger le recorder
+                        self.log(f"ERREUR RECORDER: {e}")
 
                     forecast_data = []
                     try:
@@ -369,7 +414,8 @@ class BridgeLogic:
                         pass
 
                     try:
-                        scor_veh = scoring.get_vehicle_scoring(idx); in_pits = (scor_veh.get('in_pits', 0) == 1)
+                        scor_veh = scoring.get_vehicle_scoring(idx);
+                        in_pits = (scor_veh.get('in_pits', 0) == 1)
                     except:
                         in_pits = False
                     self.tracker.update(curr_lap, curr_fuel, curr_ve, in_pits);
