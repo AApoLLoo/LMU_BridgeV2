@@ -561,7 +561,12 @@ class rF2VehicleScoring(ctypes.Structure):
         ("mPitLapDist", ctypes.c_float),         # location of pit in terms of lap distance
         ("mBestLapSector1", ctypes.c_float),     # sector 1 time from best lap (not necessarily the best sector 1 time)
         ("mBestLapSector2", ctypes.c_float),     # sector 2 time from best lap (not necessarily the best sector 2 time)
-        ("mExpansion", ctypes.c_ubyte*48),       # for future use
+        ("mSteamID", ctypes.c_ulonglong),  # SteamID (8 bytes) - Utile pour tracker les pilotes uniques
+        ("mVehFilename", ctypes.c_char * 32),  # Le nom du fichier .veh (32 bytes)
+        ("mAttackMode", ctypes.c_short),  # Attack Mode (2 bytes)
+        ("mFuelFraction", ctypes.c_ubyte),  # 0-100% Fuel/Battery (1 byte) - CRUCIAL pour LMU
+        ("mDRSState", ctypes.c_ubyte),  # DRS State (1 byte) - booléen en fait
+        ("mExpansion", ctypes.c_ubyte * 4),
     ]
 
 

@@ -399,13 +399,15 @@ class BridgeLogic:
                     self.tracker.update(curr_lap, curr_fuel, curr_ve, in_pits);
                     stats = self.tracker.get_stats()
 
-                    # TEMPÉRATURES
                     oil_t = 0.0
                     water_t = 0.0
                     try:
                         oil_t = telemetry.temp_oil(idx)
                         water_t = telemetry.temp_water(idx)
-                    except:
+                    except Exception as e:
+                        # On affiche l'erreur une seule fois pour ne pas spammer
+                        if int(time.time()) % 5 == 0:
+                            print(f"⚠️ Erreur Températures : {e}")
                         pass
 
                     all_vehicles = []
@@ -455,7 +457,8 @@ class BridgeLogic:
                         "sessionTimeRemainingSeconds": max(0, time_info.get("end", 0) - time_info.get("current", 0)),
                         "weatherForecast": forecast_data,
                         "telemetry": {
-                            "gear": telemetry.gear(idx), "rpm": telemetry.rpm(idx), "speed": vehicle_helper.speed(idx),
+                            "gear": telemetry.gear(idx), "rpm": telemetry.rpm(idx),
+                            "speed": vehicle_helper.speed(idx), "maxRpm": telemetry.rpm_max(idx),
                             "fuel": curr_fuel, "fuelCapacity": telemetry.fuel_capacity(idx),
                             "inputs": {"thr": telemetry.input_throttle(idx), "brk": telemetry.input_brake(idx),
                                        "clt": telemetry.input_clutch(idx), "str": telemetry.input_steering(idx)},
