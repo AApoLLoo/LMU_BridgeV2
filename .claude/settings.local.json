@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py -3 -c \"import ast; ast.parse\\(open\\(''bridge.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''bridge.py: OK''\\)\")",
+      "Bash(py -3 -c \"import ast; ast.parse\\(open\\(''adapter/rf2_data.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''rf2_data.py: OK''\\); ast.parse\\(open\\(''adapter/socket_connector.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''socket_connector.py: OK''\\)\")"
+    ]
+  }
+}

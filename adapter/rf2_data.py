@@ -3,6 +3,7 @@ rF2 API data set - Corrected for LMU Internal Plugin Structures
 Optimized for performance and LMU specific data (Battery/Fuel %, DRS)
 """
 from __future__ import annotations
+import time
 import requests
 from validator import bytes_to_str as tostr
 from validator import infnan_to_zero as rmnan
@@ -100,12 +101,9 @@ class TelemetryData(DataAdapter):
         veh = self.shmm.rf2TeleVeh(index)
         scor_veh = self.shmm.rf2ScorVeh(index)
 
-        # La charge batterie précise (0-100%) se trouve dans mFuelFraction pour les Hypercars
-        charge_val = 0.0
-        if hasattr(scor_veh, 'mFuelFraction'):
-            charge_val = rmnan(scor_veh.mFuelFraction) / 255.0
-        else:
-            charge_val = rmnan(veh.mBatteryChargeFraction)
+        # SoC réelle de la batterie = mBatteryChargeFraction (0.0-1.0)
+        # mFuelFraction est le VE chez LMU (repurposed), pas le SoC
+        charge_val = rmnan(veh.mBatteryChargeFraction)
 
         return {
             "charge": charge_val,
@@ -126,8 +124,18 @@ class TelemetryData(DataAdapter):
                 if curr is not None:
                     val = float(curr)
                     if val <= 1.0 and val > 0.0: return val * 100.0
-                    return val
-            except: pass
+                    if val > 1.0: return val
+            except:
+                pass
+        # Fallback: mFuelFraction est le VE % pour les Hypercars LMU (0-255 -> 0-100%)
+        try:
+            scor_veh = self.shmm.rf2ScorVeh(index)
+            if hasattr(scor_veh, 'mFuelFraction'):
+                ve_frac = rmnan(scor_veh.mFuelFraction)
+                if ve_frac > 0.0:
+                    return (ve_frac / 255.0) * 100.0
+        except:
+            pass
         return 0.0
 
     def max_virtual_energy(self, index: int | None = None) -> float: return 100.0
@@ -356,19 +364,32 @@ class WeatherData(DataAdapter):
         }
 
 class PitStrategyData:
-    __slots__ = ("_pit_estimator", "_port")
+    __slots__ = ("_pit_estimator", "_port", "_cache", "_cache_time")
+    _CACHE_TTL = 2.0
+
     def __init__(self, port=5397):
         self._pit_estimator = EstimatePitTime()
         self._port = port
+        self._cache: dict = {}
+        self._cache_time: float = 0.0
+
     def pit_estimate(self) -> dict:
+        now = time.monotonic()
+        if now - self._cache_time < self._CACHE_TTL:
+            return self._cache
         try:
             url = f"http://localhost:{self._port}/rest/garage/UIScreen/RepairAndRefuel"
             resp = requests.get(url, timeout=0.1)
             if resp.status_code == 200:
                 est = self._pit_estimator(resp.json())
-                return {"time_min": est[0], "time_max": est[1], "fuel_to_add": est[2], "laps_to_add": est[3]}
-        except: pass
-        return {}
+                self._cache = {"time_min": est[0], "time_max": est[1],
+                               "fuel_to_add": est[2], "laps_to_add": est[3]}
+                self._cache_time = now
+                return self._cache
+        except:
+            pass
+        self._cache_time = now  # éviter le spam sur échec
+        return self._cache
 
 class Vehicle(DataAdapter):
     __slots__ = ()
@@ -384,5 +405,9 @@ class Vehicle(DataAdapter):
                 player_idx = i; found = True; break
         if not found: return {"is_driving": False, "driver_name": "Unknown"}
         scor_veh = self.shmm.rf2ScorVeh(player_idx)
-        is_driving = (safe_int(scor_veh.mIsPlayer) == 1 and safe_int(scor_veh.mControl) == 0 and safe_int(self.shmm.rf2ScorInfo.mInRealtime) == 1)
+        in_realtime = (safe_int(self.shmm.rf2ScorInfo.mInRealtime) == 1
+                       or safe_int(self.shmm.rf2TeleVeh(player_idx).mIgnitionStarter) > 0)
+        is_driving = (safe_int(scor_veh.mIsPlayer) == 1
+                      and safe_int(scor_veh.mControl) == 0
+                      and in_realtime)
         return {"is_driving": is_driving, "driver_name": tostr(scor_veh.mDriverName), "vehicle_index": player_idx}

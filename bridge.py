@@ -3,8 +3,10 @@ import threading
 import time
 import sys
 import os
+import json
 import logging
 import requests
+from datetime import datetime
 from tkinter import scrolledtext
 from update import check_and_update
 from version import __version__
@@ -45,6 +47,23 @@ COLORS = {
 }
 
 VPS_URL = "https://api.racetelemetrybyfbt.com"
+CONFIG_PATH = os.path.join(current_dir, "config.json")
+
+
+def load_config() -> dict:
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_config(lineup_id: str, pseudo: str) -> None:
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump({"lineup_id": lineup_id, "pseudo": pseudo}, f)
+    except Exception:
+        pass
 
 
 def normalize_id(name):
@@ -167,6 +186,8 @@ class TelemetryRecorder:
                     "t_temp_i": [round(x, 1) for x in telemetry.tire_inner_layer_temp(vehicle_idx)]
                 })
                 self.last_dist = dist
+                if len(self.buffer) > 5000:
+                    self.buffer = self.buffer[-5000:]
 
     def flush_lap(self, lap_num, lap_time):
         if not self.buffer or len(self.buffer) < 50: return
@@ -184,9 +205,10 @@ class TelemetryRecorder:
 
 
 class BridgeLogic:
-    def __init__(self, log_callback, status_callback):
-        self.log = log_callback;
+    def __init__(self, log_callback, status_callback, vps_status_callback=None):
+        self.log = log_callback
         self.set_status = status_callback
+        self.set_vps_status = vps_status_callback if vps_status_callback else status_callback
         self.running = False;
         self.debug_mode = False;
         self.connector = None;
@@ -209,16 +231,20 @@ class BridgeLogic:
     def connect_vps(self, username, password):
         if self.connector: self.connector.disconnect()
         try:
-            self.connector = SocketConnector(VPS_URL, port=None, username=username, password=password)
+            self.set_vps_status("CONNEXION...", COLORS["warning"])
+            self.connector = SocketConnector(VPS_URL, port=None, username=username, password=password, log_callback=self.log)
             self.connector.connect()
             time.sleep(2)
             if self.connector.is_connected:
+                self.set_vps_status("CONNECTÉ", COLORS["success"])
                 return True
             else:
                 self.log("❌ Échec Authentification (Check Logs)")
+                self.set_vps_status("OFFLINE", COLORS["danger"])
                 return False
         except Exception as e:
             self.log(f"❌ Erreur VPS: {e}")
+            self.set_vps_status("OFFLINE", COLORS["danger"])
             return False
 
     def start_loop(self, line_up_name, driver_pseudo, password, analysis_enabled):
@@ -245,10 +271,11 @@ class BridgeLogic:
             if self.connector: self.connector.disconnect()
         except:
             pass
-        self.rf2_info = None;
-        self.rest_info = None;
+        self.rf2_info = None
+        self.rest_info = None
         self.thread = None
         self.set_status("OFFLINE", COLORS["text_dim"])
+        self.set_vps_status("OFFLINE", COLORS["text_dim"])
         self.log("⏹️ Bridge arrêté.")
 
     def _run(self, my_session_id):
@@ -303,16 +330,14 @@ class BridgeLogic:
                         rules = RulesData(self.rf2_info);
                         extended = ExtendedData(self.rf2_info);
                         pit_info = PitInfoData(self.rf2_info);
-
-                        # === CORRECTION MÉTÉO ICI ===
-                        # On passe bien self.rest_info pour que weather.forecast() fonctionne
                         weather = WeatherData(self.rf2_info, self.rest_info);
                         # ============================
 
                         vehicle_helper = Vehicle(self.rf2_info);
                         self.tracker.reset();
                         vehicle_trackers = {}
-                    except:
+                    except Exception as e:
+                        self.log(f"❌ Erreur connexion jeu: {e}")
                         self.rf2_info = None
                     last_game_check = current_time
                 time.sleep(0.1);
@@ -386,9 +411,14 @@ class BridgeLogic:
                                 self.log(f"⚠️ Météo vide. Vérifiez l'API REST.")
 
                             for node in raw_f.get(k, []):
-                                forecast_data.append({"rain": float(node.get("rain_chance", 0.0)) / 100.0,
-                                                      "cloud": min(max(float(node.get("sky", 0)), 0) / 4.0, 1.0),
-                                                      "temp": float(node.get("temp", 0.0))})
+                                try:
+                                    forecast_data.append({
+                                        "rain": float(node.get("rain_chance", 0.0)) / 100.0,
+                                        "cloud": min(max(float(node.get("sky", 0)), 0) / 4.0, 1.0),
+                                        "temp": float(node.get("temp", 0.0))
+                                    })
+                                except (TypeError, ValueError):
+                                    continue
                     except Exception as e:
                         if self.debug_mode: self.log(f"Erreur Météo: {e}")
 
@@ -413,9 +443,11 @@ class BridgeLogic:
                     all_vehicles = []
                     try:
                         for i in range(scoring.vehicle_count()):
-                            v = scoring.get_vehicle_scoring(i);
-                            vid = v.get('id');
-                            v_pit = (v.get('in_pits') == 1);
+                            v = scoring.get_vehicle_scoring(i)
+                            vid = v.get('id')
+                            if vid is None:
+                                continue
+                            v_pit = (v.get('in_pits') == 1)
                             v_laps = v.get('laps', 0);
                             pit_c = v.get('pit_stops', 0)
                             if vid not in vehicle_trackers: vehicle_trackers[vid] = {
@@ -491,7 +523,10 @@ class BridgeLogic:
                             if int(time.time()) % 5 == 0:
                                 self.log(f"🔍 DEBUG TEMP: Huile={oil_t}, Eau={water_t}, RPM={telemetry.rpm(idx)}")
                 elif not status['is_driving']:
-                    self.set_status("EN ATTENTE (PIT / SPECTATE)", COLORS["text_dim"]);
+                    if self.rf2_info and self.rf2_info.isPaused:
+                        self.set_status("PLUGIN INACTIF OU JEU NON ACTIF", COLORS["warning"])
+                    else:
+                        self.set_status("EN ATTENTE (PIT / SPECTATE)", COLORS["text_dim"])
                     time.sleep(0.5)
 
             except Exception as e:
@@ -515,7 +550,7 @@ class BridgeApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(f"LMU Bridge {__version__}")
-        self.geometry("450x700")
+        self.geometry("450x750")
         self.resizable(False, False)
 
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -559,16 +594,59 @@ class BridgeApp(ctk.CTk):
         self.btn_stop = ctk.CTkButton(self.main_frame, text="DÉCONNEXION", height=40, font=("Segoe UI", 12, "bold"),
                                       fg_color=COLORS["danger"], hover_color="#DC2626", command=self.on_stop)
 
-        self.lbl_status = ctk.CTkLabel(self, text="LOGIN REQUIRED", font=("Consolas", 12, "bold"),
-                                       text_color=COLORS["text_dim"])
-        self.lbl_status.pack(side="bottom", pady=10)
+        # --- INDICATEURS STATUT JEU / VPS ---
+        self.status_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.status_frame.pack(fill="x", padx=20, pady=(8, 0))
 
-        self.log_textbox = ctk.CTkTextbox(self.main_frame, height=150, fg_color="#000000", text_color="#4ADE80",
+        self.game_status_row = ctk.CTkFrame(self.status_frame, fg_color=COLORS["bg"], corner_radius=8)
+        self.game_status_row.pack(fill="x", pady=(0, 4))
+        self.game_dot = ctk.CTkLabel(self.game_status_row, text="●", width=20,
+                                     text_color=COLORS["text_dim"], font=("Consolas", 13))
+        self.game_dot.pack(side="left", padx=(8, 4), pady=4)
+        self.game_status_label = ctk.CTkLabel(self.game_status_row, text="JEU: EN ATTENTE",
+                                              font=("Consolas", 10), text_color=COLORS["text_dim"], anchor="w")
+        self.game_status_label.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=4)
+
+        self.vps_status_row = ctk.CTkFrame(self.status_frame, fg_color=COLORS["bg"], corner_radius=8)
+        self.vps_status_row.pack(fill="x", pady=(0, 0))
+        self.vps_dot = ctk.CTkLabel(self.vps_status_row, text="●", width=20,
+                                    text_color=COLORS["text_dim"], font=("Consolas", 13))
+        self.vps_dot.pack(side="left", padx=(8, 4), pady=4)
+        self.vps_status_label = ctk.CTkLabel(self.vps_status_row, text="VPS: OFFLINE",
+                                             font=("Consolas", 10), text_color=COLORS["text_dim"], anchor="w")
+        self.vps_status_label.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=4)
+
+        # --- HEADER LOGS + BOUTON CLEAR ---
+        self.log_header_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.log_header_frame.pack(fill="x", padx=20, pady=(8, 0))
+        self.lbl_log_header = ctk.CTkLabel(self.log_header_frame, text="LOGS",
+                                           font=("Consolas", 10, "bold"), text_color=COLORS["text_dim"])
+        self.lbl_log_header.pack(side="left")
+        self.btn_clear_log = ctk.CTkButton(
+            self.log_header_frame, text="🗑", width=30, height=22,
+            font=("Segoe UI", 12), fg_color=COLORS["bg"],
+            hover_color=COLORS["danger"], text_color=COLORS["text_dim"],
+            command=self._clear_logs
+        )
+        self.btn_clear_log.pack(side="right")
+
+        self.log_textbox = ctk.CTkTextbox(self.main_frame, height=130, fg_color="#000000", text_color="#4ADE80",
                                           font=("Consolas", 10))
-        self.log_textbox.pack(fill="both", expand=True, padx=20, pady=(10, 20))
+        self.log_textbox.pack(fill="both", expand=True, padx=20, pady=(4, 20))
         self.log_textbox.configure(state="disabled")
 
-        self.logic = BridgeLogic(self.log_message, self.set_status_text)
+        self.logic = BridgeLogic(
+            self.log_message,
+            self.set_status_text,
+            lambda text, color: self.set_status_text(text, color, kind="vps")
+        )
+
+        # --- CHARGEMENT CONFIG SAUVEGARDÉE ---
+        _cfg = load_config()
+        if _cfg.get("lineup_id"):
+            self.ent_lineup.insert(0, _cfg["lineup_id"])
+        if _cfg.get("pseudo"):
+            self.ent_pseudo.insert(0, _cfg["pseudo"])
 
     def toggle_debug(self):
         self.logic.set_debug(self.sw_debug.get() == 1)
@@ -577,13 +655,26 @@ class BridgeApp(ctk.CTk):
         self.after(0, lambda: self._log_safe(msg))
 
     def _log_safe(self, msg):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_textbox.configure(state="normal")
-        self.log_textbox.insert("end", f"> {msg}\n")
+        self.log_textbox.insert("end", f"[{timestamp}] {msg}\n")
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
 
-    def set_status_text(self, text, color):
-        self.after(0, lambda: self.lbl_status.configure(text=text, text_color=color))
+    def _clear_logs(self):
+        self.log_textbox.configure(state="normal")
+        self.log_textbox.delete("1.0", "end")
+        self.log_textbox.configure(state="disabled")
+
+    def set_status_text(self, text, color, kind="game"):
+        def _update():
+            if kind == "vps":
+                self.vps_dot.configure(text_color=color)
+                self.vps_status_label.configure(text=f"VPS: {text}", text_color=color)
+            else:
+                self.game_dot.configure(text_color=color)
+                self.game_status_label.configure(text=f"JEU: {text}", text_color=color)
+        self.after(0, _update)
 
     def on_start(self):
         l = self.ent_lineup.get().strip()
@@ -591,9 +682,10 @@ class BridgeApp(ctk.CTk):
         pwd = self.ent_password.get().strip()
 
         if not l or not p or not pwd:
-            self.lbl_status.configure(text="CHAMPS REQUIS (ID, Pseudo, MDP) !", text_color=COLORS["warning"])
+            self.game_status_label.configure(text="JEU: CHAMPS REQUIS !", text_color=COLORS["warning"])
             return
 
+        save_config(l, p)
         self.btn_start.pack_forget()
         self.btn_stop.pack(fill="x", padx=20, pady=(20, 10))
         self.ent_lineup.configure(state="disabled")
