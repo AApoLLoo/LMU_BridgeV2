@@ -91,6 +91,21 @@ class SocketConnector:
             self._log(f"⚠️ Erreur de connexion Socket: {e}")
 
     def send_data(self, data):
+        # Compat legacy: send_data() envoie maintenant sur le canal télémétrie dédié.
+        self.send_telemetry(data)
+
+    def send_presence(self, data):
+        # Connexion auto si besoin
+        if not self.sio.connected:
+            self.connect()
+            if not self.sio.connected: return
+
+        try:
+            self.sio.emit('presence_update', data)
+        except Exception as e:
+            self._log(f"Erreur d'envoi présence: {e}")
+
+    def send_telemetry(self, data):
         # Connexion auto si besoin
         if not self.sio.connected:
             self.connect()
@@ -99,7 +114,7 @@ class SocketConnector:
         try:
             self.sio.emit('telemetry_data', data)
         except Exception as e:
-            self._log(f"Erreur d'envoi: {e}")
+            self._log(f"Erreur d'envoi télémétrie: {e}")
 
     def disconnect(self):
         if self.sio.connected:
