@@ -1,6 +1,7 @@
 import socketio
 import requests
 import time
+from tls_config import bootstrap_tls_env
 
 
 class SocketConnector:
@@ -11,7 +12,18 @@ class SocketConnector:
         else:
             self.base_url = f"http://{server_url}:{port}"
 
-        self.sio = socketio.Client(reconnection=True, reconnection_attempts=0, reconnection_delay=1)
+        self.ca_bundle = bootstrap_tls_env()
+        self.http_session = requests.Session()
+        if self.ca_bundle:
+            self.http_session.verify = self.ca_bundle
+
+        self.sio = socketio.Client(
+            reconnection=True,
+            reconnection_attempts=0,
+            reconnection_delay=1,
+            http_session=self.http_session,
+            ssl_verify=self.ca_bundle if self.ca_bundle else True,
+        )
         self.is_connected = False
         self.token = None
 
@@ -19,6 +31,8 @@ class SocketConnector:
         self.username = username
         self.password = password
         self._log = log_callback if log_callback else print
+        if self.ca_bundle:
+            self._log(f"🔒 TLS CA bundle: {self.ca_bundle}")
 
         @self.sio.event
         def connect():
@@ -51,10 +65,10 @@ class SocketConnector:
 
         try:
             self._log(f"🔐 Authentification pour '{self.username}'...")
-            response = requests.post(f"{self.base_url}/api/auth/login", json={
+            response = self.http_session.post(f"{self.base_url}/api/auth/login", json={
                 "username": self.username,
                 "password": self.password
-            })
+            }, timeout=8)
 
             if response.status_code == 200:
                 data = response.json()

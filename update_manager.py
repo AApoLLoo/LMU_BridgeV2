@@ -11,6 +11,7 @@ import ctypes
 import threading
 from typing import Callable, Optional
 from version_manager import get_github_checker, get_version_manager
+from tls_config import bootstrap_tls_env
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class UpdateManager:
         self.version_manager = get_version_manager()
         self.github_checker = get_github_checker(repo)
         self._is_updating = False
+        self._ca_bundle = bootstrap_tls_env()
 
     def check_async(self, callback: Callable[[Optional[dict]], None]):
         """Vérifie les mises à jour de manière asynchrone"""
@@ -83,7 +85,12 @@ class UpdateManager:
                 os.rename(exe, backup)
 
             # Téléchargement
-            response = requests.get(url, stream=True, timeout=self.TIMEOUT)
+            response = requests.get(
+                url,
+                stream=True,
+                verify=self._ca_bundle if self._ca_bundle else True,
+                timeout=self.TIMEOUT,
+            )
             response.raise_for_status()
 
             with open(exe, 'wb') as f:

@@ -11,6 +11,7 @@ import json
 from typing import Optional, Tuple, Dict
 from functools import lru_cache
 from datetime import datetime, timedelta
+from tls_config import bootstrap_tls_env
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,7 @@ class GitHubReleaseChecker:
         self.app_name = app_name
         self.version_manager = VersionManager()
         self._api_url = f"https://api.github.com/repos/{repo}/releases"
+        self._ca_bundle = bootstrap_tls_env()
 
     def _get_headers(self) -> Dict[str, str]:
         """Retourne les headers pour les requêtes GitHub"""
@@ -212,6 +214,7 @@ class GitHubReleaseChecker:
             response = requests.get(
                 self._api_url,
                 headers=self._get_headers(),
+                verify=self._ca_bundle if self._ca_bundle else True,
                 timeout=5
             )
 

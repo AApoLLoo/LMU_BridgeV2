@@ -1663,6 +1663,7 @@
   ('tkinter.ttk',
    'C:\\Users\\Antoine\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\tkinter\\ttk.py',
    'PYMODULE'),
+  ('tls_config', 'D:\\LMU_BridgeV2\\tls_config.py', 'PYMODULE'),
   ('token',
    'C:\\Users\\Antoine\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\token.py',
    'PYMODULE'),

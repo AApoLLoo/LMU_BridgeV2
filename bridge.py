@@ -10,6 +10,7 @@ from datetime import datetime
 from tkinter import scrolledtext
 from update import check_and_update
 from version_manager import get_version_manager
+from tls_config import bootstrap_tls_env
 
 # --- CONFIGURATION DU CHEMIN ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -303,6 +304,7 @@ class TelemetryRecorder:
 class BridgeLogic:
     def __init__(self, log_callback, status_callback, vps_status_callback=None):
         self.log = log_callback
+        bootstrap_tls_env(self.log)
         self.set_status = status_callback
         self.set_vps_status = vps_status_callback if vps_status_callback else status_callback
         self.running = False;
