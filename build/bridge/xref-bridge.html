@@ -191,7 +191,7 @@ imports:
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#types">types</a>
  &#8226;   <a href="#update">update</a>
- &#8226;   <a href="#version">version</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#warnings">warnings</a>
  &#8226;   <a href="#weakref">weakref</a>
 
@@ -608,7 +608,6 @@ imported by:
  &#8226;   <a href="#_pyrepl.utils">_pyrepl.utils</a>
  &#8226;   <a href="#_pyrepl.windows_console">_pyrepl.windows_console</a>
  &#8226;   <a href="#adapter.restapi_connector">adapter.restapi_connector</a>
- &#8226;   <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
  &#8226;   <a href="#adapter.rf2_data">adapter.rf2_data</a>
  &#8226;   <a href="#adapter.rf2_restapi">adapter.rf2_restapi</a>
  &#8226;   <a href="#async_request">async_request</a>
@@ -653,8 +652,7 @@ imported by:
  &#8226;   <a href="#process.pitstop">process.pitstop</a>
  &#8226;   <a href="#process.vehicle">process.vehicle</a>
  &#8226;   <a href="#process.weather">process.weather</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2Type">pyRfactor2SharedMemory.rF2Type</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
  &#8226;   <a href="#pydoc">pydoc</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._core_metadata">setuptools._core_metadata</a>
@@ -2640,7 +2638,6 @@ imported by:
  &#8226;   <a href="#numbers">numbers</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#packaging.specifiers">packaging.specifiers</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2Type">pyRfactor2SharedMemory.rF2Type</a>
  &#8226;   <a href="#selectors">selectors</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
@@ -2699,18 +2696,13 @@ imported by:
   <a target="code" href="///D:/LMU_BridgeV2/adapter/rf2_connector.py" type="text/plain"><tt>adapter.rf2_connector</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#adapter">adapter</a>
- &#8226;   <a href="#ctypes">ctypes</a>
+    <a href="#adapter">adapter</a>
  &#8226;   <a href="#logging">logging</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2Type">pyRfactor2SharedMemory.rF2Type</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
- &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
  &#8226;   <a href="#threading">threading</a>
  &#8226;   <a href="#time">time</a>
- &#8226;   <a href="#typing">typing</a>
 
   </div>
   <div class="import">
@@ -5608,7 +5600,6 @@ imports:
 imported by:
     <a href="#_ios_support">_ios_support</a>
  &#8226;   <a href="#_pyrepl.windows_console">_pyrepl.windows_console</a>
- &#8226;   <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
  &#8226;   <a href="#ctypes._aix">ctypes._aix</a>
  &#8226;   <a href="#ctypes._endian">ctypes._endian</a>
  &#8226;   <a href="#ctypes._layout">ctypes._layout</a>
@@ -5624,12 +5615,12 @@ imported by:
  &#8226;   <a href="#multiprocessing.sharedctypes">multiprocessing.sharedctypes</a>
  &#8226;   <a href="#packaging._manylinux">packaging._manylinux</a>
  &#8226;   <a href="#platform">platform</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
  &#8226;   <a href="#setuptools._vendor.packaging._manylinux">setuptools._vendor.packaging._manylinux</a>
  &#8226;   <a href="#setuptools._vendor.wheel.macosx_libfile">setuptools._vendor.wheel.macosx_libfile</a>
  &#8226;   <a href="#setuptools.windows_support">setuptools.windows_support</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#webbrowser">webbrowser</a>
 
   </div>
@@ -7078,6 +7069,7 @@ imported by:
  &#8226;   <a href="#socketio.async_admin">socketio.async_admin</a>
  &#8226;   <a href="#tomllib._re">tomllib._re</a>
  &#8226;   <a href="#urllib3.connection">urllib3.connection</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#xmlrpc.client">xmlrpc.client</a>
 
   </div>
@@ -10722,7 +10714,6 @@ imported by:
  &#8226;   <a href="#http">http</a>
  &#8226;   <a href="#inspect">inspect</a>
  &#8226;   <a href="#packaging._elffile">packaging._elffile</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
  &#8226;   <a href="#py_compile">py_compile</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#setuptools._vendor.packaging._elffile">setuptools._vendor.packaging._elffile</a>
@@ -10988,6 +10979,7 @@ imported by:
  &#8226;   <a href="#urllib3.poolmanager">urllib3.poolmanager</a>
  &#8226;   <a href="#urllib3.util.wait">urllib3.util.wait</a>
  &#8226;   <a href="#validator">validator</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
 
   </div>
 
@@ -12476,6 +12468,7 @@ imported by:
  &#8226;   <a href="#urllib3.contrib.emscripten.fetch">urllib3.contrib.emscripten.fetch</a>
  &#8226;   <a href="#urllib3.contrib.emscripten.response">urllib3.contrib.emscripten.response</a>
  &#8226;   <a href="#urllib3.response">urllib3.response</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
 
   </div>
 
@@ -12604,6 +12597,17 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="lmu_data"></a>
+  <a target="code" href="" type="text/plain"><tt>lmu_data</tt></a>
+<span class="moduletype">MissingModule</span>  <div class="import">
+imported by:
+    <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="locale"></a>
   <a target="code" href="///C:/Users/Antoine/AppData/Local/Programs/Python/Python314/Lib/locale.py" type="text/plain"><tt>locale</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -12676,7 +12680,7 @@ imported by:
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
  &#8226;   <a href="#multiprocessing.util">multiprocessing.util</a>
  &#8226;   <a href="#packaging.tags">packaging.tags</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
  &#8226;   <a href="#requests">requests</a>
  &#8226;   <a href="#setuptools._distutils._log">setuptools._distutils._log</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
@@ -12699,6 +12703,7 @@ imported by:
  &#8226;   <a href="#socketio.server">socketio.server</a>
  &#8226;   <a href="#unittest._log">unittest._log</a>
  &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#urllib3">urllib3</a>
  &#8226;   <a href="#urllib3.connection">urllib3.connection</a>
  &#8226;   <a href="#urllib3.connectionpool">urllib3.connectionpool</a>
@@ -12709,6 +12714,7 @@ imported by:
  &#8226;   <a href="#urllib3.response">urllib3.response</a>
  &#8226;   <a href="#urllib3.util.retry">urllib3.util.retry</a>
  &#8226;   <a href="#validator">validator</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#websocket._logging">websocket._logging</a>
 
   </div>
@@ -12808,8 +12814,8 @@ imported by:
 imported by:
     <a href="#multiprocessing.heap">multiprocessing.heap</a>
  &#8226;   <a href="#multiprocessing.shared_memory">multiprocessing.shared_memory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
 
   </div>
 
@@ -14000,7 +14006,7 @@ imported by:
  &#8226;   <a href="#tkinter.filedialog">tkinter.filedialog</a>
  &#8226;   <a href="#unittest.loader">unittest.loader</a>
  &#8226;   <a href="#unittest.main">unittest.main</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#urllib3.connection">urllib3.connection</a>
  &#8226;   <a href="#urllib3.contrib.emscripten.connection">urllib3.contrib.emscripten.connection</a>
@@ -14008,6 +14014,7 @@ imported by:
  &#8226;   <a href="#urllib3.util.ssl_">urllib3.util.ssl_</a>
  &#8226;   <a href="#uuid">uuid</a>
  &#8226;   <a href="#validator">validator</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#webbrowser">webbrowser</a>
  &#8226;   <a href="#websocket._abnf">websocket._abnf</a>
  &#8226;   <a href="#websocket._handshake">websocket._handshake</a>
@@ -14615,7 +14622,7 @@ imported by:
  &#8226;   <a href="#darkdetect">darkdetect</a>
  &#8226;   <a href="#packaging.markers">packaging.markers</a>
  &#8226;   <a href="#packaging.tags">packaging.tags</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
  &#8226;   <a href="#pydoc">pydoc</a>
  &#8226;   <a href="#setuptools._distutils.compat.py39">setuptools._distutils.compat.py39</a>
  &#8226;   <a href="#setuptools._distutils.spawn">setuptools._distutils.spawn</a>
@@ -14807,85 +14814,63 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="pyRfactor2SharedMemory"></a>
-  <a target="code" href="///D:/LMU_BridgeV2/pyRfactor2SharedMemory/__init__.py" type="text/plain"><tt>pyRfactor2SharedMemory</tt></a>
+  <a name="pyLMUSharedMemory"></a>
+  <a target="code" href="///D:/LMU_BridgeV2/pyLMUSharedMemory/__init__.py" type="text/plain"><tt>pyLMUSharedMemory</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
 imports:
-    <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2Type">pyRfactor2SharedMemory.rF2Type</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
+    <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
 
   </div>
   <div class="import">
 imported by:
     <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2Type">pyRfactor2SharedMemory.rF2Type</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
+ &#8226;   <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
 
   </div>
 
 </div>
 
 <div class="node">
-  <a name="pyRfactor2SharedMemory.rF2MMap"></a>
-  <a target="code" href="///D:/LMU_BridgeV2/pyRfactor2SharedMemory/rF2MMap.py" type="text/plain"><tt>pyRfactor2SharedMemory.rF2MMap</tt></a>
+  <a name="pyLMUSharedMemory.lmu_data"></a>
+  <a target="code" href="///D:/LMU_BridgeV2/pyLMUSharedMemory/lmu_data.py" type="text/plain"><tt>pyLMUSharedMemory.lmu_data</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ctypes">ctypes</a>
+ &#8226;   <a href="#mmap">mmap</a>
+ &#8226;   <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
+ &#8226;   <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_mmap">pyLMUSharedMemory.lmu_mmap</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="pyLMUSharedMemory.lmu_mmap"></a>
+  <a target="code" href="///D:/LMU_BridgeV2/pyLMUSharedMemory/lmu_mmap.py" type="text/plain"><tt>pyLMUSharedMemory.lmu_mmap</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#__future__">__future__</a>
  &#8226;   <a href="#ctypes">ctypes</a>
+ &#8226;   <a href="#lmu_data">lmu_data</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#mmap">mmap</a>
  &#8226;   <a href="#platform">platform</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2data">pyRfactor2SharedMemory.rF2data</a>
- &#8226;   <a href="#rF2data">rF2data</a>
+ &#8226;   <a href="#pyLMUSharedMemory">pyLMUSharedMemory</a>
+ &#8226;   <a href="#pyLMUSharedMemory.lmu_data">pyLMUSharedMemory.lmu_data</a>
 
   </div>
   <div class="import">
 imported by:
     <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="pyRfactor2SharedMemory.rF2Type"></a>
-  <a target="code" href="///D:/LMU_BridgeV2/pyRfactor2SharedMemory/rF2Type.py" type="text/plain"><tt>pyRfactor2SharedMemory.rF2Type</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#abc">abc</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="pyRfactor2SharedMemory.rF2data"></a>
-  <a target="code" href="///D:/LMU_BridgeV2/pyRfactor2SharedMemory/rF2data.py" type="text/plain"><tt>pyRfactor2SharedMemory.rF2data</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#ctypes">ctypes</a>
- &#8226;   <a href="#enum">enum</a>
- &#8226;   <a href="#mmap">mmap</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
- &#8226;   <a href="#pyRfactor2SharedMemory">pyRfactor2SharedMemory</a>
- &#8226;   <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
 
   </div>
 
@@ -15080,17 +15065,6 @@ imported by:
     <a href="#email.encoders">email.encoders</a>
  &#8226;   <a href="#email.message">email.message</a>
  &#8226;   <a href="#encodings.quopri_codec">encodings.quopri_codec</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="rF2data"></a>
-  <a target="code" href="" type="text/plain"><tt>rF2data</tt></a>
-<span class="moduletype">MissingModule</span>  <div class="import">
-imported by:
-    <a href="#pyRfactor2SharedMemory.rF2MMap">pyRfactor2SharedMemory.rF2MMap</a>
 
   </div>
 
@@ -15502,7 +15476,8 @@ imported by:
  &#8226;   <a href="#requests.status_codes">requests.status_codes</a>
  &#8226;   <a href="#requests.structures">requests.structures</a>
  &#8226;   <a href="#requests.utils">requests.utils</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
 
   </div>
 
@@ -21113,7 +21088,7 @@ imported by:
  &#8226;   <a href="#setuptools._vendor.packaging._musllinux">setuptools._vendor.packaging._musllinux</a>
  &#8226;   <a href="#setuptools._vendor.packaging.tags">setuptools._vendor.packaging.tags</a>
  &#8226;   <a href="#setuptools.installer">setuptools.installer</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#uuid">uuid</a>
  &#8226;   <a href="#webbrowser">webbrowser</a>
 
@@ -21144,7 +21119,6 @@ imported by:
  &#8226;   <a href="#_pyrepl.trace">_pyrepl.trace</a>
  &#8226;   <a href="#_pyrepl.windows_console">_pyrepl.windows_console</a>
  &#8226;   <a href="#_sitebuiltins">_sitebuiltins</a>
- &#8226;   <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
  &#8226;   <a href="#annotationlib">annotationlib</a>
  &#8226;   <a href="#argparse">argparse</a>
  &#8226;   <a href="#ast">ast</a>
@@ -21354,7 +21328,7 @@ imported by:
  &#8226;   <a href="#unittest.result">unittest.result</a>
  &#8226;   <a href="#unittest.runner">unittest.runner</a>
  &#8226;   <a href="#unittest.suite">unittest.suite</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#urllib3">urllib3</a>
  &#8226;   <a href="#urllib3.connection">urllib3.connection</a>
@@ -21363,6 +21337,7 @@ imported by:
  &#8226;   <a href="#urllib3.util.request">urllib3.util.request</a>
  &#8226;   <a href="#urllib3.util.ssl_">urllib3.util.ssl_</a>
  &#8226;   <a href="#uuid">uuid</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#warnings">warnings</a>
  &#8226;   <a href="#weakref">weakref</a>
  &#8226;   <a href="#webbrowser">webbrowser</a>
@@ -21603,6 +21578,7 @@ imported by:
  &#8226;   <a href="#subprocess">subprocess</a>
  &#8226;   <a href="#sysconfig">sysconfig</a>
  &#8226;   <a href="#unittest.mock">unittest.mock</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#urllib3._collections">urllib3._collections</a>
  &#8226;   <a href="#urllib3.connection">urllib3.connection</a>
  &#8226;   <a href="#urllib3.http2.connection">urllib3.http2.connection</a>
@@ -22302,7 +22278,6 @@ imported by:
  &#8226;   <a href="#_pyrepl.utils">_pyrepl.utils</a>
  &#8226;   <a href="#_pyrepl.windows_console">_pyrepl.windows_console</a>
  &#8226;   <a href="#adapter.restapi_connector">adapter.restapi_connector</a>
- &#8226;   <a href="#adapter.rf2_connector">adapter.rf2_connector</a>
  &#8226;   <a href="#adapter.rf2_restapi">adapter.rf2_restapi</a>
  &#8226;   <a href="#annotationlib">annotationlib</a>
  &#8226;   <a href="#async_request">async_request</a>
@@ -22454,6 +22429,7 @@ imported by:
  &#8226;   <a href="#tomllib._parser">tomllib._parser</a>
  &#8226;   <a href="#tomllib._re">tomllib._re</a>
  &#8226;   <a href="#tomllib._types">tomllib._types</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
  &#8226;   <a href="#urllib3">urllib3</a>
  &#8226;   <a href="#urllib3._base_connection">urllib3._base_connection</a>
  &#8226;   <a href="#urllib3._collections">urllib3._collections</a>
@@ -22484,6 +22460,7 @@ imported by:
  &#8226;   <a href="#urllib3.util.url">urllib3.util.url</a>
  &#8226;   <a href="#urllib3.util.util">urllib3.util.util</a>
  &#8226;   <a href="#validator">validator</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
  &#8226;   <a href="#websocket._abnf">websocket._abnf</a>
  &#8226;   <a href="#websocket._app">websocket._app</a>
  &#8226;   <a href="#websocket._cookiejar">websocket._cookiejar</a>
@@ -22869,18 +22846,37 @@ imported by:
   <a target="code" href="///D:/LMU_BridgeV2/update.py" type="text/plain"><tt>update</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
+    <a href="#logging">logging</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#bridge.py">bridge.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="update_manager"></a>
+  <a target="code" href="///D:/LMU_BridgeV2/update_manager.py" type="text/plain"><tt>update_manager</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
     <a href="#ctypes">ctypes</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#requests">requests</a>
  &#8226;   <a href="#subprocess">subprocess</a>
  &#8226;   <a href="#sys">sys</a>
- &#8226;   <a href="#version">version</a>
+ &#8226;   <a href="#threading">threading</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#version_manager">version_manager</a>
 
   </div>
   <div class="import">
 imported by:
-    <a href="#bridge.py">bridge.py</a>
+    <a href="#update">update</a>
 
   </div>
 
@@ -24213,8 +24209,32 @@ imported by:
   <a target="code" href="///D:/LMU_BridgeV2/version.py" type="text/plain"><tt>version</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imported by:
+    <a href="#version_manager">version_manager</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="version_manager"></a>
+  <a target="code" href="///D:/LMU_BridgeV2/version_manager.py" type="text/plain"><tt>version_manager</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#datetime">datetime</a>
+ &#8226;   <a href="#functools">functools</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#requests">requests</a>
+ &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#version">version</a>
+
+  </div>
+  <div class="import">
+imported by:
     <a href="#bridge.py">bridge.py</a>
- &#8226;   <a href="#update">update</a>
+ &#8226;   <a href="#update_manager">update_manager</a>
 
   </div>
 
